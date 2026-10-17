@@ -1,0 +1,8 @@
+# generated from the game files by the installer / update-data.bat (game assets are not redistributed)
+panel/public/data/
+panel/config.json
+tools/extractor/target/
+dist/
+vendor/
+dev/
+*.log

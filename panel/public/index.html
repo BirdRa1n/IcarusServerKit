@@ -1,0 +1,156 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Icarus Server Kit</title>
+  <link rel="stylesheet" href="app.css">
+</head>
+<body>
+  <!-- login -->
+  <div id="login" class="login hidden">
+    <form id="loginForm" class="login-card">
+      <div class="brand big">ICARUS <span>SERVER KIT</span></div>
+      <label>Usuário<input name="name" autocomplete="username" value="admin" required></label>
+      <label>Senha<input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="btn primary" type="submit">Entrar</button>
+      <div id="loginError" class="error"></div>
+    </form>
+  </div>
+
+  <!-- app -->
+  <div id="app" class="app hidden">
+    <header class="topbar">
+      <div class="brand">ICARUS <span>SERVER KIT</span></div>
+      <div class="status">
+        <span id="modStatus" class="pill off">Mod offline</span>
+        <span class="stat"><b id="statPlayers">0</b> jogadores</span>
+        <span class="stat">Mapa: <b id="statMap">—</b></span>
+        <span class="stat">Online há <b id="statUptime">—</b></span>
+      </div>
+      <div class="user">
+        <span id="userName"></span>
+        <button id="logoutBtn" class="btn ghost small">Sair</button>
+      </div>
+    </header>
+
+    <main class="main">
+      <section class="map-wrap">
+        <div class="map-toolbar">
+          <select id="mapSelect" title="Mapa exibido"></select>
+          <label class="check"><input type="checkbox" id="followMap" checked> seguir mapa do servidor</label>
+          <span class="spacer"></span>
+          <span id="cursorPos" class="mono muted"></span>
+          <button id="zoomFit" class="btn ghost small" title="Enquadrar mapa">⤢</button>
+        </div>
+        <div id="map" class="map">
+          <div id="mapLayer" class="map-layer"></div>
+          <div id="markerLayer" class="marker-layer"></div>
+        </div>
+        <div id="mapMenu" class="ctx hidden"></div>
+      </section>
+
+      <aside class="side">
+        <nav class="tabs">
+          <button data-tab="players" class="active">Jogadores</button>
+          <button data-tab="items">Itens</button>
+          <button data-tab="server">Servidor</button>
+          <button data-tab="log">Log <span id="logBadge" class="badge hidden">0</span></button>
+        </nav>
+
+        <!-- players -->
+        <div id="tab-players" class="tab active">
+          <div id="playerList" class="player-list"></div>
+          <div id="playerDetail" class="player-detail hidden"></div>
+        </div>
+
+        <!-- items -->
+        <div id="tab-items" class="tab">
+          <div class="item-filters">
+            <input id="itemSearch" type="search" placeholder="Buscar item (nome ou ID)…">
+            <div id="itemCats" class="chips"></div>
+          </div>
+          <div id="itemCount" class="muted small-text"></div>
+          <div id="itemGrid" class="item-grid"></div>
+          <button id="itemMore" class="btn ghost hidden">Mostrar mais</button>
+        </div>
+
+        <!-- server -->
+        <div id="tab-server" class="tab">
+          <div class="card">
+            <h3>Mensagem para todos</h3>
+            <form id="broadcastForm" class="row">
+              <input name="message" placeholder="Mensagem do servidor…" required>
+              <button class="btn primary">Enviar</button>
+            </form>
+          </div>
+          <div class="card">
+            <h3>Velocidade do tempo</h3>
+            <form id="dilationForm" class="row">
+              <input name="value" type="number" step="0.1" min="0.1" max="10" value="1">
+              <button class="btn">Aplicar</button>
+            </form>
+            <p class="muted small-text">1 = normal. Afeta o servidor inteiro.</p>
+          </div>
+          <div class="card">
+            <h3>Comando de console</h3>
+            <form id="consoleForm" class="row">
+              <input name="command" placeholder="ex.: stat fps" required>
+              <button class="btn">Executar</button>
+            </form>
+          </div>
+          <div class="card">
+            <h3>Diagnóstico</h3>
+            <button id="selftestBtn" class="btn">Testar mod</button>
+            <pre id="selftestOut" class="mono pre hidden"></pre>
+          </div>
+        </div>
+
+        <!-- log -->
+        <div id="tab-log" class="tab">
+          <div class="log-filters chips">
+            <button class="chip active" data-kind="">Tudo</button>
+            <button class="chip" data-kind="chat">Chat</button>
+            <button class="chip" data-kind="admin">Admin</button>
+            <button class="chip" data-kind="join">Entradas</button>
+            <button class="chip" data-kind="error">Erros</button>
+          </div>
+          <div id="logList" class="log-list"></div>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <!-- give item dialog -->
+  <dialog id="giveDialog" class="dialog">
+    <form method="dialog" id="giveForm">
+      <div class="give-head">
+        <img id="giveIcon" alt="">
+        <div>
+          <div id="giveName" class="give-name"></div>
+          <div id="giveId" class="mono muted small-text"></div>
+        </div>
+      </div>
+      <p id="giveDesc" class="muted"></p>
+      <div id="giveMeta" class="muted small-text"></div>
+      <label>Jogador<select id="givePlayer" required></select></label>
+      <label>Quantidade
+        <div class="row">
+          <input id="giveCount" type="number" min="1" max="100000" value="1">
+          <button type="button" class="btn ghost small" data-qty="1">1</button>
+          <button type="button" class="btn ghost small" data-qty="10">10</button>
+          <button type="button" class="btn ghost small" data-qty="stack">Pilha</button>
+          <button type="button" class="btn ghost small" data-qty="100">100</button>
+        </div>
+      </label>
+      <div class="row end">
+        <button value="cancel" class="btn ghost">Cancelar</button>
+        <button id="giveSubmit" value="ok" class="btn primary">Dar item</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toasts" class="toasts"></div>
+  <script src="app.js"></script>
+</body>
+</html>
