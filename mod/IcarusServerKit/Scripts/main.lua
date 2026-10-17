@@ -15,7 +15,7 @@ local IPC = MOD_DIR .. "ipc/"
 local STATE_INTERVAL_MS = 1000
 local POLL_INTERVAL_MS = 250
 
-local VERSION = "1.0.0"
+local VERSION = "1.1.3"
 
 -- EDynamicItemProperties (from the server's reflection dump)
 local DYN = {
@@ -395,6 +395,25 @@ local function build_item_data(static_row, count, dyn)
     }, has_stack
 end
 
+-- Raises the stack of existing slots holding `static_row` (Backpack/Quickbar) by up to `need` units.
+local function top_up_stacks(ic, static_row, need, max_stack)
+    for _, id in ipairs({ "Quickbar", "Backpack" }) do
+        if need <= 0 then break end
+        local inv = get_inventory(ic, id)
+        if inv then
+            for _, it in ipairs(read_slots(inv)) do
+                if need <= 0 then break end
+                if it.item == static_row and it.count < max_stack then
+                    local add = math.min(need, max_stack - it.count)
+                    if try(function() inv:SetItemDynamicProperty(it.slot, DYN.ItemableStack, it.count + add); return true end) then
+                        need = need - add
+                    end
+                end
+            end
+        end
+    end
+end
+
 Commands.give_item = function(cmd)
     local pc = need_player(cmd)
     local static_row = cmd.static or cmd.item
@@ -406,35 +425,63 @@ Commands.give_item = function(cmd)
     if count > 100000 then error("quantidade muito alta") end
 
     local ic = inventory_component(pc)
-    local before = ic and count_item(ic, static_row) or nil
-    local method = cmd.method or "controller"
+    if not ic then error("inventário indisponível (jogador morto ou carregando?)") end
+    local function total() return count_item(ic, static_row) end
+    local function item_data(n) return template_item_data(cmd.item, n) or build_item_data(static_row, n, cmd.dyn) end
+    local function place_inventory(n)
+        local inv = get_inventory(ic, "Backpack") or get_inventory(ic, "Quickbar")
+        if not inv then return false end
+        return try(function() inv:AutomaticallyPlaceItem(item_data(n), {}, true, true); return true end)
+    end
+    local function place_controller(n)
+        return try(function() pc:OnServer_AddItem(item_data(n)); return true end)
+    end
 
+    -- The game's add-item paths may ignore the requested stack size and create a single unit,
+    -- so every step is measured against the real inventory and the shortfall is made up.
+    local start = total()
+    local methods = {}
     local remaining = count
-    while remaining > 0 do
+    local rounds = 0
+    while remaining > 0 and rounds < 100 do
+        rounds = rounds + 1
         local n = math.min(remaining, max_stack)
-        local data = template_item_data(cmd.item, n) or build_item_data(static_row, n, cmd.dyn)
-        if method == "controller" then
-            pc:OnServer_AddItem(data)
-        else
-            local inv = ic and (get_inventory(ic, "Backpack") or get_inventory(ic, "Quickbar"))
-            if not inv then error("inventário indisponível") end
-            inv:AutomaticallyPlaceItem(data, {}, true, true)
+        local before = total()
+        place_inventory(n)
+        local got = total() - before
+        if got > 0 then methods.inventory = true else
+            place_controller(n)
+            got = total() - before
+            if got > 0 then methods.controller = true end
         end
-        remaining = remaining - n
+        if got <= 0 then break end
+        if got < n then
+            top_up_stacks(ic, static_row, n - got, max_stack)
+            local fixed = total() - before
+            if fixed > got then methods.stack = true end
+            got = fixed
+        end
+        if got < n then
+            -- stack sizes could not be set: add the rest one unit at a time
+            for _ = 1, math.min(n - got, 1000) do place_controller(1) end
+            methods.single = true
+            got = total() - before
+        end
+        if got <= 0 then break end
+        remaining = remaining - got
     end
 
-    local after = ic and count_item(ic, static_row) or nil
-    local msg = string.format("%dx %s entregue a %s", count, static_row, player_name(pc))
-    if before and after then
-        if after - before <= 0 and method == "controller" then
-            -- the controller path did not place anything; retry through the inventory
-            cmd.method = "inventory"
-            return Commands.give_item(cmd)
-        end
-        msg = msg .. string.format(" (inventário: %d → %d%s)", before, after,
-            after - before < count and ", excedente pode ter caído no chão" or "")
+    local given = total() - start
+    local used = {}
+    for k in pairs(methods) do used[#used + 1] = k end
+    if given <= 0 then
+        error(string.format("o jogo não adicionou %s ao inventário de %s (inventário cheio?)", static_row, player_name(pc)))
     end
-    return { message = msg, method = method, before = before, after = after }
+    local msg = string.format("%dx %s entregue a %s", given, static_row, player_name(pc))
+    if given < count then
+        msg = msg .. string.format(" (pedido: %d; o restante não coube ou caiu no chão)", count)
+    end
+    return { message = msg, given = given, requested = count, methods = table.concat(used, ",") }
 end
 
 Commands.remove_item = function(cmd)
