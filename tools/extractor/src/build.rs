@@ -1,28 +1,47 @@
-//! Generates the panel's static data: item catalog (with pt-BR/en names + icons) and map tiles.
+//! Generates the panel's static data from the game files:
+//!
+//! - `items.json`      item catalog (language-neutral: ids, icon, stack size, category)
+//! - `creatures.json`  spawnable creatures (AI setups) with bestiary images
+//! - `maps.json`       world bounds and map tiles per terrain
+//! - `i18n/<lang>.json` item/creature/map names for every language shipped with the game
+//! - `icons/`, `creatures/`, `maps/` images
+//!
+//! Dedicated-server paks contain no texture data. When an image cannot be decoded but already
+//! exists in the output folder (from the downloadable data package), it is kept and referenced.
 
 use crate::pak::{PakSet, Reader};
 use crate::texture;
 use anyhow::{anyhow, Result};
 use serde_json::{json, Map, Value};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
-pub fn run(client_dir: &Path, out: &Path) -> Result<()> {
-    let paks = PakSet::open_dir(&client_dir.join("Icarus/Content/Paks"))?;
-    let data = PakSet { paks: vec![crate::pak::Pak::open(&client_dir.join("Icarus/Content/Data/data.pak"))?] };
+type Tables = HashMap<String, Value>;
+/// "namespace\u{1}key" -> localized string
+type Locres = HashMap<String, String>;
+
+pub fn run(game_dir: &Path, out: &Path) -> Result<()> {
+    let paks = PakSet::open_dir(&game_dir.join("Icarus/Content/Paks"))?;
+    let data = PakSet { paks: vec![crate::pak::Pak::open(&game_dir.join("Icarus/Content/Data/data.pak"))?] };
     let tables = load_tables(&data)?;
-    let loc_pt = load_locres(&paks, "Icarus/Content/Localization/Game/pt-BR/Game.locres").unwrap_or_default();
-    eprintln!("tables: {}  pt-BR strings: {}", tables.len(), loc_pt.len());
+    let locales = load_all_locres(&paks);
+    eprintln!("tables: {}  languages: {}", tables.len(), locales.keys().cloned().collect::<Vec<_>>().join(", "));
 
-    std::fs::create_dir_all(out.join("icons"))?;
-    std::fs::create_dir_all(out.join("maps"))?;
+    for dir in ["icons", "creatures", "maps", "i18n"] {
+        std::fs::create_dir_all(out.join(dir))?;
+    }
 
-    build_items(&paks, &tables, &loc_pt, out)?;
-    build_maps(&paks, &tables, &loc_pt, out)?;
+    let mut i18n = I18n::new(&locales);
+    build_items(&paks, &tables, &mut i18n, out)?;
+    build_creatures(&paks, &tables, &mut i18n, out)?;
+    build_maps(&paks, &tables, &mut i18n, out)?;
+    i18n.write(&out.join("i18n"))?;
     Ok(())
 }
 
-fn load_tables(data: &PakSet) -> Result<HashMap<String, Value>> {
+// ------------------------------------------------------------------ data tables
+
+fn load_tables(data: &PakSet) -> Result<Tables> {
     let mut t = HashMap::new();
     for n in data.all_names() {
         if !n.ends_with(".json") {
@@ -31,8 +50,7 @@ fn load_tables(data: &PakSet) -> Result<HashMap<String, Value>> {
         let name = n.rsplit('/').next().unwrap().trim_end_matches(".json").to_string();
         let bytes = data.read(&n)?;
         let text = String::from_utf8_lossy(&bytes);
-        let text = text.trim_start_matches('\u{feff}');
-        match serde_json::from_str::<Value>(text) {
+        match serde_json::from_str::<Value>(text.trim_start_matches('\u{feff}')) {
             Ok(v) => {
                 t.insert(name, v);
             }
@@ -42,7 +60,7 @@ fn load_tables(data: &PakSet) -> Result<HashMap<String, Value>> {
     Ok(t)
 }
 
-fn rows<'a>(tables: &'a HashMap<String, Value>, name: &str) -> Result<HashMap<String, &'a Value>> {
+fn rows<'a>(tables: &'a Tables, name: &str) -> Result<HashMap<String, &'a Value>> {
     let t = tables.get(name).ok_or_else(|| anyhow!("missing table {name}"))?;
     let mut m = HashMap::new();
     for r in t["Rows"].as_array().ok_or_else(|| anyhow!("{name} has no rows"))? {
@@ -53,16 +71,26 @@ fn rows<'a>(tables: &'a HashMap<String, Value>, name: &str) -> Result<HashMap<St
     Ok(m)
 }
 
+fn row_ref(v: &Value) -> Option<&str> {
+    v.get("RowName").and_then(|x| x.as_str()).filter(|s| !s.is_empty() && *s != "None")
+}
+
+/// "/Game/Foo/Bar.Bar" -> "Icarus/Content/Foo/Bar.uasset"
+fn game_path(p: &str) -> Option<String> {
+    let p = p.strip_prefix("/Game/")?;
+    let p = p.split('.').next()?;
+    Some(format!("Icarus/Content/{p}.uasset"))
+}
+
+// ------------------------------------------------------------------ localization
+
 /// NSLOCTEXT("ns", "key", "source") -> (ns, key, source)
 fn parse_nsloc(s: &str) -> Option<(String, String, String)> {
-    if !s.starts_with("NSLOCTEXT(") {
-        return None;
-    }
+    let body = s.strip_prefix("NSLOCTEXT(")?;
     let mut parts = Vec::new();
     let mut cur = String::new();
-    let mut inq = false;
-    let mut esc = false;
-    for c in s["NSLOCTEXT(".len()..].chars() {
+    let (mut inq, mut esc) = (false, false);
+    for c in body.chars() {
         if inq {
             if esc {
                 cur.push(c);
@@ -79,29 +107,29 @@ fn parse_nsloc(s: &str) -> Option<(String, String, String)> {
             inq = true;
         }
     }
-    if parts.len() >= 3 {
-        Some((parts[0].clone(), parts[1].clone(), parts[2].clone()))
-    } else {
-        None
-    }
+    (parts.len() >= 3).then(|| (parts[0].clone(), parts[1].clone(), parts[2].clone()))
 }
 
-fn text(v: &Value, loc: &HashMap<String, String>) -> (String, String) {
-    let s = v.as_str().unwrap_or("");
-    match parse_nsloc(s) {
-        Some((ns, key, src)) => {
-            let pt = loc.get(&format!("{ns}\u{1}{key}")).cloned().unwrap_or_else(|| src.clone());
-            (src, pt)
+fn load_all_locres(paks: &PakSet) -> BTreeMap<String, Locres> {
+    let mut out = BTreeMap::new();
+    for name in paks.all_names() {
+        let Some(rest) = name.strip_prefix("Icarus/Content/Localization/Game/") else { continue };
+        let Some(lang) = rest.strip_suffix("/Game.locres") else { continue };
+        match load_locres(paks, &name) {
+            Ok(l) => {
+                out.insert(lang.to_string(), l);
+            }
+            Err(e) => eprintln!("warn: {name}: {e:#}"),
         }
-        None => (s.to_string(), s.to_string()),
     }
+    out
 }
 
-pub fn load_locres(paks: &PakSet, path: &str) -> Result<HashMap<String, String>> {
+pub fn load_locres(paks: &PakSet, path: &str) -> Result<Locres> {
+    const MAGIC: [u8; 16] = [0x0E, 0x14, 0x74, 0x75, 0x67, 0x4A, 0x03, 0xFC, 0x4A, 0x15, 0x90, 0x9D, 0xC3, 0x37, 0x7F, 0x1B];
     let b = paks.read(path)?;
     let mut r = Reader::new(&b);
-    let magic = r.bytes(16)?;
-    let version = if magic == [0x0E, 0x14, 0x74, 0x75, 0x67, 0x4A, 0x03, 0xFC, 0x4A, 0x15, 0x90, 0x9D, 0xC3, 0x37, 0x7F, 0x1B] {
+    let version = if r.bytes(16)? == MAGIC {
         r.u8()?
     } else {
         r.pos = 0;
@@ -112,11 +140,10 @@ pub fn load_locres(paks: &PakSet, path: &str) -> Result<HashMap<String, String>>
         let off = r.i64()? as usize;
         let save = r.pos;
         r.pos = off;
-        let n = r.i32()?;
-        for _ in 0..n {
+        for _ in 0..r.i32()? {
             strings.push(r.fstring()?);
             if version >= 2 {
-                r.i32()?;
+                r.i32()?; // ref count
             }
         }
         r.pos = save;
@@ -125,22 +152,19 @@ pub fn load_locres(paks: &PakSet, path: &str) -> Result<HashMap<String, String>>
         r.u32()?; // entries count
     }
     let mut out = HashMap::new();
-    let nns = r.u32()?;
-    for _ in 0..nns {
+    for _ in 0..r.u32()? {
         if version >= 2 {
             r.u32()?;
         }
         let ns = r.fstring()?;
-        let nk = r.u32()?;
-        for _ in 0..nk {
+        for _ in 0..r.u32()? {
             if version >= 2 {
                 r.u32()?;
             }
             let key = r.fstring()?;
             r.u32()?; // source hash
             let s = if version >= 1 {
-                let i = r.i32()?;
-                strings.get(i as usize).cloned().unwrap_or_default()
+                strings.get(r.i32()? as usize).cloned().unwrap_or_default()
             } else {
                 r.fstring()?
             };
@@ -150,144 +174,225 @@ pub fn load_locres(paks: &PakSet, path: &str) -> Result<HashMap<String, String>>
     Ok(out)
 }
 
-/// "/Game/Foo/Bar.Bar" -> "Icarus/Content/Foo/Bar.uasset"
-fn game_path(p: &str) -> Option<String> {
-    let p = p.strip_prefix("/Game/")?;
-    let p = p.split('.').next()?;
-    Some(format!("Icarus/Content/{p}.uasset"))
+/// Collects localized strings per language and writes one file per language.
+struct I18n<'a> {
+    locales: &'a BTreeMap<String, Locres>,
+    /// lang -> section -> id -> value
+    out: BTreeMap<String, BTreeMap<&'static str, Map<String, Value>>>,
 }
 
-fn row_ref(v: &Value) -> Option<&str> {
-    v.get("RowName").and_then(|x| x.as_str()).filter(|s| !s.is_empty() && *s != "None")
+impl<'a> I18n<'a> {
+    fn new(locales: &'a BTreeMap<String, Locres>) -> Self {
+        let mut out = BTreeMap::new();
+        out.insert("en".to_string(), BTreeMap::new());
+        for l in locales.keys() {
+            out.insert(l.clone(), BTreeMap::new());
+        }
+        Self { locales, out }
+    }
+
+    /// Source (English) text of a localized field.
+    fn source(v: &Value) -> String {
+        let s = v.as_str().unwrap_or("");
+        parse_nsloc(s).map(|(_, _, src)| src).unwrap_or_else(|| s.to_string())
+    }
+
+    /// Localized value of `v` for every language (falls back to the English source).
+    fn all(&self, v: &Value) -> BTreeMap<String, String> {
+        let s = v.as_str().unwrap_or("");
+        let parsed = parse_nsloc(s);
+        self.out
+            .keys()
+            .map(|lang| {
+                let text = match &parsed {
+                    Some((ns, key, src)) => self
+                        .locales
+                        .get(lang)
+                        .and_then(|l| l.get(&format!("{ns}\u{1}{key}")))
+                        .filter(|t| !t.is_empty())
+                        .cloned()
+                        .unwrap_or_else(|| src.clone()),
+                    None => s.to_string(),
+                };
+                (lang.clone(), text)
+            })
+            .collect()
+    }
+
+    fn set(&mut self, section: &'static str, id: &str, fields: &[&Value]) {
+        let per_field: Vec<BTreeMap<String, String>> = fields.iter().map(|f| self.all(f)).collect();
+        for (lang, sections) in self.out.iter_mut() {
+            let values: Vec<String> = per_field.iter().map(|m| m.get(lang).cloned().unwrap_or_default()).collect();
+            let v = if values.len() == 1 { json!(values[0]) } else { json!(values) };
+            sections.entry(section).or_default().insert(id.to_string(), v);
+        }
+    }
+
+    fn write(&self, dir: &Path) -> Result<()> {
+        for (lang, sections) in &self.out {
+            let obj: Map<String, Value> = sections.iter().map(|(k, v)| (k.to_string(), Value::Object(v.clone()))).collect();
+            std::fs::write(dir.join(format!("{lang}.json")), serde_json::to_string(&Value::Object(obj))?)?;
+        }
+        eprintln!("i18n: {} languages", self.out.len());
+        Ok(())
+    }
 }
 
-fn build_items(paks: &PakSet, tables: &HashMap<String, Value>, loc: &HashMap<String, String>, out: &Path) -> Result<()> {
+// ------------------------------------------------------------------ images
+
+/// Decodes `asset` into `<out>/<folder>/<file>`; keeps an existing file when the paks have no texture data.
+fn export_image(paks: &PakSet, asset: &str, out: &Path, folder: &str, max: u32, done: &mut HashSet<String>) -> Option<String> {
+    let file = asset.rsplit('/').next()?.trim_end_matches(".uasset").to_string() + ".png";
+    if done.contains(&file) {
+        return Some(file);
+    }
+    let target = out.join(folder).join(&file);
+    match texture::load_texture(paks, asset) {
+        Ok(img) => texture::save_png(&texture::downscale(img, max), &target).ok()?,
+        Err(_) if target.exists() => {}
+        Err(_) => return None,
+    }
+    done.insert(file.clone());
+    Some(file)
+}
+
+// ------------------------------------------------------------------ items
+
+fn build_items(paks: &PakSet, tables: &Tables, i18n: &mut I18n, out: &Path) -> Result<()> {
     let statics = rows(tables, "D_ItemsStatic")?;
     let itemables = rows(tables, "D_Itemable")?;
     let templates = rows(tables, "D_ItemTemplate")?;
 
     let mut items = Vec::new();
-    let mut icons_done: HashSet<String> = HashSet::new();
-    let mut icon_fail = 0;
+    let mut icons: HashSet<String> = HashSet::new();
     let mut names: Vec<&String> = templates.keys().collect();
     names.sort();
-    for tname in names {
-        let t = templates[tname];
-        let Some(sname) = row_ref(&t["ItemStaticData"]) else { continue };
-        let Some(st) = statics.get(sname) else { continue };
-        let Some(iname) = row_ref(&st["Itemable"]) else { continue };
-        let Some(it) = itemables.get(iname) else { continue };
-        let (name_en, name_pt) = text(&it["DisplayName"], loc);
-        let (desc_en, desc_pt) = text(&it["Description"], loc);
+    for id in names {
+        let Some(static_row) = row_ref(&templates[id]["ItemStaticData"]) else { continue };
+        let Some(st) = statics.get(static_row) else { continue };
+        let Some(it) = row_ref(&st["Itemable"]).and_then(|n| itemables.get(n)) else { continue };
 
-        // icon
-        let mut icon = Value::Null;
-        if let Some(ip) = it["Icon"].as_str().and_then(game_path) {
-            let file = ip.rsplit('/').next().unwrap().trim_end_matches(".uasset").to_string() + ".png";
-            if icons_done.contains(&file) {
-                icon = json!(file);
-            } else {
-                match texture::load_texture(paks, &ip) {
-                    Ok(img) => {
-                        let img = texture::downscale(img, 128);
-                        texture::save_png(&img, &out.join("icons").join(&file))?;
-                        icons_done.insert(file.clone());
-                        icon = json!(file);
-                    }
-                    // no texture data (dedicated-server paks): reuse an icon from the data package
-                    Err(_) if out.join("icons").join(&file).exists() => {
-                        icons_done.insert(file.clone());
-                        icon = json!(file);
-                    }
-                    Err(e) => {
-                        icon_fail += 1;
-                        if icon_fail < 3 {
-                            eprintln!("icon {ip}: {e:#}");
-                        }
-                    }
-                }
-            }
-        }
-
-        // tags / traits
-        let mut tags: Vec<String> = Vec::new();
-        if let Some(arr) = st["Manual_Tags"]["GameplayTags"].as_array() {
-            for g in arr {
-                if let Some(n) = g["TagName"].as_str() {
-                    tags.push(n.to_string());
-                }
-            }
-        }
-        let mut traits: Vec<String> = Vec::new();
-        if let Some(obj) = st.as_object() {
-            for (k, v) in obj {
-                if row_ref(v).is_some() && k != "Itemable" {
-                    traits.push(k.clone());
-                }
-            }
-        }
+        let icon = it["Icon"].as_str().and_then(game_path).and_then(|p| export_image(paks, &p, out, "icons", 128, &mut icons));
+        let tags: Vec<String> = st["Manual_Tags"]["GameplayTags"]
+            .as_array()
+            .map(|a| a.iter().filter_map(|g| g["TagName"].as_str().map(String::from)).collect())
+            .unwrap_or_default();
+        let mut traits: Vec<String> = st
+            .as_object()
+            .map(|o| o.iter().filter(|(k, v)| row_ref(v).is_some() && *k != "Itemable").map(|(k, _)| k.clone()).collect())
+            .unwrap_or_default();
         traits.sort();
-        let category = category_for(&traits, &tags);
 
+        i18n.set("items", id, &[&it["DisplayName"], &it["Description"]]);
         items.push(json!({
-            "id": tname,
-            "static": sname,
-            "name": name_pt,
-            "name_en": name_en,
-            "desc": desc_pt,
-            "desc_en": desc_en,
+            "id": id,
+            "static": static_row,
+            "name": I18n::source(&it["DisplayName"]),
             "icon": icon,
             "weight": it["Weight"],
             "maxStack": it["MaxStack"].as_i64().unwrap_or(1),
-            "category": category,
-            "traits": traits,
+            "category": category_for(&traits, &tags),
             "tags": tags.iter().filter(|t| t.starts_with("Item.")).collect::<Vec<_>>(),
         }));
     }
-    eprintln!("items: {}  icons: {}  icon failures: {}", items.len(), icons_done.len(), icon_fail);
-    if icons_done.is_empty() {
-        eprintln!("aviso: nenhum ícone extraído (os paks do servidor dedicado não têm texturas; use a pasta do jogo cliente)");
+    eprintln!("items: {}  icons: {}", items.len(), icons.len());
+    if icons.is_empty() {
+        eprintln!("warning: no icons extracted (dedicated-server paks have no textures; use the game client folder)");
     }
     std::fs::write(out.join("items.json"), serde_json::to_string(&items)?)?;
     Ok(())
 }
 
+/// Language-neutral category key (translated by the panel). The first match wins.
 fn category_for(traits: &[String], tags: &[String]) -> &'static str {
     let has = |t: &str| traits.iter().any(|x| x == t);
     let tag = |t: &str| tags.iter().any(|x| x == t || x.starts_with(&format!("{t}.")));
-    // order matters: the first match wins
     if tag("Item.Meta") || tag("Item.Vestige") {
-        "Workshop"
+        "workshop"
     } else if tag("Item.Weapon") || tag("Item.LivingWeapon") || has("FirearmData") || has("RangedWeaponData") {
-        "Armas"
+        "weapons"
     } else if tag("Item.Ammo") {
-        "Munição"
+        "ammo"
     } else if tag("Item.Tool") || has("ToolDamage") {
-        "Ferramentas"
+        "tools"
     } else if tag("Item.Armor") || tag("Item.Envirosuit") || tag("Item.Backpack") || has("Armour") {
-        "Armaduras"
+        "armor"
     } else if tag("Item.Attachment") || tag("Item.Upgrade") {
-        "Acessórios"
+        "attachments"
     } else if tag("Item.Consumable") || tag("Item.Medicine") || has("Consumable") {
-        "Consumíveis"
+        "consumables"
     } else if tag("Item.Seed") || tag("Item.Plant") || has("Farmable") {
-        "Agricultura"
+        "farming"
     } else if has("Buildable") || tag("Item.BuildingTrim") {
-        "Construção"
+        "building"
     } else if tag("Item.Bench") || tag("Item.Machine") || has("Processing") || has("Generator") {
-        "Bancadas"
+        "benches"
     } else if tag("Item.Decoration") || tag("Item.Rug") || tag("Item.NationalFlag") {
-        "Decoração"
+        "decoration"
     } else if has("Deployable") || tag("Item.Deployable") {
-        "Implantáveis"
+        "deployables"
     } else if tag("Item.Resource") || has("Resource") || has("Transmutable") {
-        "Recursos"
+        "resources"
     } else {
-        "Outros"
+        "other"
     }
 }
 
-fn build_maps(paks: &PakSet, tables: &HashMap<String, Value>, loc: &HashMap<String, String>, out: &Path) -> Result<()> {
+// ------------------------------------------------------------------ creatures
+
+fn build_creatures(paks: &PakSet, tables: &Tables, i18n: &mut I18n, out: &Path) -> Result<()> {
+    let setups = rows(tables, "D_AISetup")?;
+    let types = rows(tables, "D_AICreatureType")?;
+    let bestiary = rows(tables, "D_BestiaryData").unwrap_or_default();
+
+    let mut list = Vec::new();
+    let mut images: HashSet<String> = HashSet::new();
+    let mut ids: Vec<&String> = setups.keys().collect();
+    ids.sort();
+    for id in ids {
+        let s = setups[id];
+        if id == "Invalid" || s["ActorClass"].as_str().map_or(true, |c| c.is_empty() || c == "None") {
+            continue;
+        }
+        let Some(ctype) = row_ref(&s["CreatureType"]).and_then(|t| types.get(t).map(|r| (t, r))) else { continue };
+        let descriptors: Vec<String> = s["Descriptors"]
+            .as_array()
+            .map(|a| a.iter().filter_map(|d| row_ref(d).map(String::from)).collect())
+            .unwrap_or_default();
+        let best = row_ref(&s["BestiaryGroup"]).and_then(|b| bestiary.get(b));
+        let image = best
+            .and_then(|b| b["Image"].as_str())
+            .and_then(game_path)
+            .and_then(|p| export_image(paks, &p, out, "creatures", 160, &mut images));
+        let lower = id.to_lowercase();
+        let tag = if lower.contains("boss") {
+            "boss"
+        } else if lower.starts_with("quest_") || lower.starts_with("tamed_") || lower.starts_with("mount_") {
+            "special"
+        } else if descriptors.iter().any(|d| d.contains("Hostile") || d.contains("Predator") || d.contains("Carnivore")) {
+            "hostile"
+        } else {
+            "passive"
+        };
+
+        i18n.set("creatures", id, &[&ctype.1["CreatureName"]]);
+        list.push(json!({
+            "id": id,
+            "type": ctype.0,
+            "name": I18n::source(&ctype.1["CreatureName"]),
+            "image": image,
+            "tag": tag,
+            "descriptors": descriptors,
+        }));
+    }
+    eprintln!("creatures: {}  images: {}", list.len(), images.len());
+    std::fs::write(out.join("creatures.json"), serde_json::to_string(&list)?)?;
+    Ok(())
+}
+
+// ------------------------------------------------------------------ maps
+
+fn build_maps(paks: &PakSet, tables: &Tables, i18n: &mut I18n, out: &Path) -> Result<()> {
     let world = rows(tables, "D_WorldData")?;
     let terrains = rows(tables, "D_Terrains")?;
     let mut maps = Map::new();
@@ -300,19 +405,22 @@ fn build_maps(paks: &PakSet, tables: &HashMap<String, Value>, loc: &HashMap<Stri
         if texs.is_empty() || texs.len() != grid.len() {
             continue;
         }
-        let display = terrains
-            .get(k.as_str())
-            .map(|t| text(&t["TerrainName"], loc).1)
-            .unwrap_or_else(|| k.clone());
+        let name_field = terrains.get(k.as_str()).map(|t| t["TerrainName"].clone()).unwrap_or_else(|| json!(k));
+        let display = I18n::source(&name_field);
+        if display.starts_with("INVTEXT") || display.contains("[DNT]") {
+            continue; // unreleased / internal maps
+        }
+        i18n.set("maps", k, &[&name_field]);
+
         let dir = out.join("maps").join(k);
         std::fs::create_dir_all(&dir)?;
         // tile bounds come from the data tables, so they are known even without textures
+        let f = |v: &Value| v.as_f64().unwrap_or(0.0);
         let mut tiles: Vec<Value> = grid
             .iter()
             .enumerate()
             .map(|(i, g)| {
                 let (o, e) = (&g["Origin"], &g["BoxExtent"]);
-                let f = |v: &Value| v.as_f64().unwrap_or(0.0);
                 json!({
                     "file": format!("{k}/{i}.jpg"),
                     "minX": f(&o["X"]) - f(&e["X"]), "maxX": f(&o["X"]) + f(&e["X"]),
@@ -320,32 +428,28 @@ fn build_maps(paks: &PakSet, tables: &HashMap<String, Value>, loc: &HashMap<Stri
                 })
             })
             .collect();
-        let (mut minx, mut maxx, mut miny, mut maxy) = (f64::MAX, f64::MIN, f64::MAX, f64::MIN);
-        for t in &tiles {
-            minx = minx.min(t["minX"].as_f64().unwrap());
-            maxx = maxx.max(t["maxX"].as_f64().unwrap());
-            miny = miny.min(t["minY"].as_f64().unwrap());
-            maxy = maxy.max(t["maxY"].as_f64().unwrap());
-        }
-        let mut ok = true;
+        let bound = |key: &str, pick: fn(f64, f64) -> f64, init: f64| tiles.iter().fold(init, |a, t| pick(a, t[key].as_f64().unwrap()));
+        let bounds = json!({
+            "minX": bound("minX", f64::min, f64::MAX), "maxX": bound("maxX", f64::max, f64::MIN),
+            "minY": bound("minY", f64::min, f64::MAX), "maxY": bound("maxY", f64::max, f64::MIN),
+        });
+
+        let mut complete = true;
         for (i, t) in texs.iter().enumerate() {
-            // dedicated-server paks ship without texture data
             let target = dir.join(format!("{i}.jpg"));
-            let img = t.as_str().and_then(game_path).and_then(|p| texture::load_texture(paks, &p).ok());
-            match img {
+            match t.as_str().and_then(game_path).and_then(|p| texture::load_texture(paks, &p).ok()) {
                 Some(img) => texture::save_jpeg(&img, &target, 85)?,
-                // no texture data (dedicated-server paks): keep a tile from the data package
-                None if target.exists() => {}
+                None if target.exists() => {} // tile from the data package
                 None => {
-                    ok = false;
+                    complete = false;
                     break;
                 }
             }
         }
-        if ok {
+        if complete {
             eprintln!("map {k} ({display}): {} tiles", tiles.len());
         } else {
-            eprintln!("map {k} ({display}): sem texturas (só coordenadas)");
+            eprintln!("map {k} ({display}): no textures (coordinates only)");
             tiles.clear();
         }
         let mm = &w["MinimapData"];
@@ -354,12 +458,12 @@ fn build_maps(paks: &PakSet, tables: &HashMap<String, Value>, loc: &HashMap<Stri
             json!({
                 "name": display,
                 "level": w["MainLevel"],
-                "bounds": {"minX": minx, "maxX": maxx, "minY": miny, "maxY": maxy},
+                "bounds": bounds,
                 "worldMin": mm["WorldBoundaryMin"], "worldMax": mm["WorldBoundaryMax"],
                 "tiles": tiles,
             }),
         );
     }
-    std::fs::write(out.join("maps.json"), serde_json::to_string_pretty(&Value::Object(maps))?)?;
+    std::fs::write(out.join("maps.json"), serde_json::to_string(&Value::Object(maps))?)?;
     Ok(())
 }

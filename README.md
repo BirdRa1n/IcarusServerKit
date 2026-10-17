@@ -1,145 +1,122 @@
 # Icarus Server Kit
 
-Painel web de administração para o **servidor dedicado do Icarus**, no estilo do
+A web admin panel and server mod for **Icarus dedicated servers**, in the spirit of
 [7DaysToDie-ServerKit](https://github.com/IceCoffee1024/7DaysToDie-ServerKit).
 
-- Mapa do mundo com a posição e a direção dos jogadores em tempo real
-- Lista de jogadores (vida, ping, Steam ID, coordenadas)
-- Teleporte: clique no mapa → "Teleportar fulano aqui" (a altura do chão é calculada no jogo), por coordenadas, até outro jogador ou trazendo outro jogador
-- Inventário do jogador com ícones (barra rápida, mochila, equipamento, traje); clique num slot para remover
-- Catálogo com **3.031 itens** em português, ícones e categorias, com busca; clique → escolha jogador e quantidade → dar item
-- Curar, definir vida/fome/sede/oxigênio/stamina, dar XP, matar, limpar inventário, expulsar e banir
-- Mensagem global do servidor, velocidade do tempo, comandos de console
-- Log ao vivo: chat dos jogadores, entradas e saídas, ações dos admins
+- **Live world map** (Olympus, Styx, Prometheus, Elysium and the outposts) with every player's position and heading
+- **Players**: health, stamina, food, water and oxygen bars, level, XP, ping, idle time
+- **Teleport**: click the map → "Teleport *player* here" (ground height is resolved in-game), by coordinates, to another player, bring one or everyone
+- **Inventory** with game icons (quickbar, backpack, equipment, envirosuit); click a slot to remove items
+- **Item catalog**: 3,000+ items with icons, categories and search; give any quantity
+- **Creatures**: bestiary catalog with images; spawn any amount at random points around a player
+- **Character**: heal, set stats, give XP, kill, clear inventory
+- **World**: time of day, clear weather, save the world now, server-wide message, console command, diagnostics
+- **Rules**: kick idle players, a minimum-players countdown so nobody progresses alone, exempt players, bans
+- **Live log**: chat, joins/leaves, admin actions, rule actions
+- **10 languages** — every language the game ships (English, Português, Español, Français, Deutsch, Русский, 日本語, 한국어, 简体中文, 繁體中文). Item, creature and map names come from the game's own translations.
 
-## Como funciona
+## How it works
 
 ```
- Navegador ──HTTP/SSE──► panel/server.js (Node.js) ◄──arquivos──► Mod Lua (UE4SS) dentro do IcarusServer
-                         porta 8090                  ipc/          ue4ss/Mods/IcarusServerKit
+Browser ──HTTP/SSE──► panel (Node.js, no dependencies) ◄──files──► Lua mod (UE4SS) inside IcarusServer
+                      port 8090                         ipc/        ue4ss/Mods/IcarusServerKit
 ```
 
-- **mod/IcarusServerKit**: mod Lua para o [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS), carregado dentro de
-  `IcarusServer-Win64-Shipping.exe`. Ele chama as funções nativas do jogo (por exemplo
-  `AIcarusController:OnServer_AddItem`, `UTeleportManagerSubsystem:TeleportPlayer_Transform`,
-  `UNetworkProxyComponent:Cheat_*` e `AIcarusGameModeBase:KickPlayer`). A cada segundo grava `state.json` e executa os
-  comandos que chegam por `commands.jsonl`.
-- **panel/**: servidor web sem dependências (Node 18+) com login e a interface.
-- **tools/extractor**: ferramenta em Rust que lê os `.pak` do jogo (Oodle/Zlib) e gera `panel/public/data`
-  (itens, ícones, nomes em pt-BR e os tiles dos mapas de Olympus, Styx, Prometheus, Elysium e dos outposts).
+| Folder | What it is |
+|---|---|
+| `mod/IcarusServerKit` | [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) Lua mod. Runs inside `IcarusServer-Win64-Shipping.exe` and calls the game's own functions. Every second it publishes the server state and evaluates the rules; every 250 ms it runs panel commands. |
+| `panel` | Web panel: login, live updates (server-sent events), settings. |
+| `tools/extractor` | Rust tool that reads the game `.pak` files (Oodle/Zlib) and builds `panel/public/data`: item and creature catalogs, icons, map tiles and translations. |
 
-## Instalação
+The mod and the panel talk through files in `ue4ss/Mods/IcarusServerKit/ipc` (UE4SS Lua has no sockets). Rules, bans
+and exemptions live in `ue4ss/Mods/IcarusServerKit/settings.json`, which the panel edits and the mod reloads.
 
-1. **Feche o servidor dedicado.**
-2. Abra o PowerShell **na pasta do servidor dedicado** (a que tem `IcarusServer.exe`). No Explorer: Shift + botão direito → "Abrir janela do PowerShell aqui".
-3. Rode:
+## Install
+
+1. **Stop the dedicated server.**
+2. Open PowerShell **in the dedicated server folder** (the one with `IcarusServer.exe`). In Explorer: Shift + right-click → "Open PowerShell window here".
+3. Run:
    ```powershell
    irm https://raw.githubusercontent.com/BirdRa1n/IcarusServerKit/main/setup.ps1 | iex
    ```
-4. Inicie o servidor normalmente e depois rode `Start_Panel.bat`, que o instalador cria na pasta do servidor. Na primeira
-   vez, o console mostra a **senha do usuário `admin`**.
-5. Abra `http://localhost:8090`.
+4. Start the server as usual, then run **`Start_Panel.bat`** (created in the server folder). The first run prints the
+   `admin` password.
+5. Open `http://localhost:8090`.
 
-O instalador:
-- baixa o kit para `<servidor>\IcarusServerKit` (painel e ferramentas);
-- instala o [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) em `Icarus\Binaries\Win64` (mantém um UE4SS que já esteja instalado);
-- copia e ativa o mod em `ue4ss\Mods\IcarusServerKit`;
-- procura o **jogo Icarus** (bibliotecas da Steam ou pastas ao lado do servidor) e gera a lista de itens, os ícones e
-  os mapas a partir dos arquivos do jogo. Os arquivos do servidor dedicado não têm texturas: se o jogo não estiver
-  instalado, o instalador baixa o **pacote de ícones e mapas** (`IcarusServerKit-data.zip`, ~80 MB) da release.
-  A lista de itens é sempre gerada a partir do servidor instalado, para acompanhar a versão dele;
-- oferece instalar o Node.js via `winget` se ele não existir;
-- cria `Start_Panel.bat` (abre o painel) e `Update_ServerKit.bat` (atualiza o kit).
+The installer:
+- downloads the kit into `<server>\IcarusServerKit`;
+- installs UE4SS into `Icarus\Binaries\Win64` (keeps an existing UE4SS);
+- copies and enables the mod;
+- looks for the **Icarus game client** (Steam libraries, folders next to the server) and builds the item list, icons and
+  maps from it. Dedicated-server files contain no textures, so without the client it downloads the prebuilt icon and map
+  package (`IcarusServerKit-data.zip`, ~80 MB). Item lists are always rebuilt from the installed server, so they match
+  its version;
+- offers to install Node.js with `winget` when it is missing;
+- creates `Start_Panel.bat` and `Update_ServerKit.bat`.
 
-Opções (defina antes do comando):
+Options (set before running the command):
 ```powershell
-$env:ISK_GAME_DIR = "E:\SteamLibrary\steamapps\common\Icarus"   # onde está o jogo, se não for achado sozinho
-# $env:ISK_GAME_DIR = "none"   # não procurar o jogo: usa o pacote de ícones e mapas da release
-irm https://raw.githubusercontent.com/BirdRa1n/IcarusServerKit/main/setup.ps1 | iex
+$env:ISK_GAME_DIR = "E:\SteamLibrary\steamapps\common\Icarus"   # game folder, if not found automatically
+# $env:ISK_GAME_DIR = "none"                                    # skip the game: use the icon/map package
 ```
 
-## Atualizar
+## Update
 
-Dê dois cliques em **`Update_ServerKit.bat`**, na pasta do servidor dedicado. Ele baixa a versão mais nova do mod, do
-painel, dos ícones e dos mapas e reinstala tudo.
+Stop the server and double-click **`Update_ServerKit.bat`** in the server folder. It downloads the latest release and
+reinstalls the mod, panel, icons and maps. `config.json` (panel users) and `settings.json` (rules, bans) are kept.
+If the panel was running it is closed and reopened; reload the browser with **Ctrl+F5**.
 
-- Feche o servidor antes: com o servidor aberto, o atualizador para sem mudar nada.
-- Se o painel estiver aberto, ele é fechado e reaberto sozinho. No navegador, recarregue com **Ctrl+F5**.
-- O `config.json` (usuários e senhas) é mantido.
+> Installs older than v2.0.0 have an `Update_ServerKit.bat` that Microsoft Defender blocks
+> (`Trojan:Win32/Commando.A!ml`, a heuristic on `powershell -Command irm … | iex` command lines). Run the install
+> command above once; it replaces the updater with one that runs a local script instead.
 
-Se a sua instalação é anterior a esse arquivo, baixe
-[`Update_ServerKit.bat`](https://raw.githubusercontent.com/BirdRa1n/IcarusServerKit/main/Update_ServerKit.bat)
-(botão direito → "Salvar link como…") para a pasta do servidor, ou rode de novo o comando da instalação.
+## Rules
 
-Conteúdo do `.bat`, caso prefira criar o arquivo à mão:
-```bat
-@echo off
-cd /d "%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/BirdRa1n/IcarusServerKit/main/setup.ps1 | iex"
-pause
-```
+| Rule | Behaviour |
+|---|---|
+| **Inactivity kick** | A player that neither moves nor chats for *N* minutes is warned (*M* minutes before) and then kicked. |
+| **Minimum players** | While fewer than *P* players are online, a countdown runs with a warning every few minutes. When it ends everyone is kicked, so nobody keeps progressing alone. It resets as soon as enough players are online. |
+| **Exempt players** | Never kicked by the two rules above (e.g. admins). |
+| **Bans** | Banned players are kicked as soon as they join. |
 
-### Ícones ou mapa não aparecem
+In-game warnings are server messages; their text is editable in the panel (`{name}`, `{minutes}`, `{players}` placeholders).
 
-O mapa aparece em grade e os itens sem imagem quando o pacote de ícones e mapas não foi instalado. Isso acontece em
-instalações feitas antes da v1.1.0, ou quando o download falhou.
-
-1. Feche o servidor e rode `Update_ServerKit.bat`. Durante a instalação deve aparecer `pacote de dados instalado` ou
-   `jogo encontrado em ...`.
-2. Recarregue o painel com **Ctrl+F5**.
-
-
-## Configuração (config.json)
+## Panel configuration (`IcarusServerKit/panel/config.json`)
 
 ```json
 {
   "port": 8090,
   "host": "0.0.0.0",
-  "ipcDir": "../../ICARUS Dedicated Server/Icarus/Binaries/Win64/ue4ss/Mods/IcarusServerKit/ipc",
   "users": [
     { "name": "admin", "password": "...", "role": "admin" },
-    { "name": "moderador", "password": "...", "role": "viewer" }
+    { "name": "moderator", "password": "...", "role": "viewer" }
   ]
 }
 ```
 
-O papel `viewer` só pode ver o mapa, os jogadores e os inventários. Para acessar de fora da rede local, prefira
-uma VPN ou um proxy com HTTPS: o painel usa HTTP puro.
+`viewer` users can see the map, players and inventories but cannot change anything. The panel serves plain HTTP: to
+reach it from outside your network use a VPN (e.g. WireGuard) instead of exposing the port.
 
-## Depois de uma atualização do Icarus
+## Troubleshooting
 
-- Rode `Update_ServerKit.bat`. Ele regenera a lista de itens a partir do servidor atualizado.
-- Se o jogo mudar as funções usadas pelo mod, abra **Servidor → Diagnóstico → Testar mod** no painel para ver o que falhou.
+- **"Mod offline" in the panel** — the server is not running, or UE4SS did not load the mod. Check
+  `Icarus\Binaries\Win64\ue4ss\UE4SS.log` for `[IcarusServerKit] loaded`.
+- **A command fails after a game update** — open *World → Diagnostics → Test mod*: it reports which game systems the mod
+  can reach.
+- **No icons / grid map** — the icon and map package was not installed. Run `Update_ServerKit.bat`.
+- **Panel does not start: invalid config.json** — fix the JSON shown in the error (a UTF-8 BOM is accepted).
 
-## Uso
+## Development
 
-| Ação | Como |
-|---|---|
-| Teleportar | Clique (ou botão direito) no mapa → escolha o jogador |
-| Ver inventário | Clique no jogador na lista ou no marcador do mapa |
-| Remover item | Clique no slot do inventário |
-| Dar item | Aba **Itens** → busque → clique no item → jogador e quantidade |
-| Seguir mapa | "seguir mapa do servidor" troca o mapa sozinho conforme o prospect carregado |
+- `node tools/mock-mod.js <dir>` simulates the mod (moving players, inventories, rule countdown). Point a panel at it with
+  `ISK_CONFIG=<config.json with "ipcDir": "<dir>">`.
+- `dev/CXXHeaderDump/` (not in git) holds the reflection dump of the server, generated by UE4SS — the reference for
+  class and function names used by the mod.
+- `update-data.bat [game folder]` rebuilds `panel/public/data`; `build-release.ps1` builds the release assets.
+- Mod layout: `main.lua` (loop), `isk/ipc.lua`, `isk/settings.lua`, `isk/game.lua` (game access), `isk/commands.lua`,
+  `isk/rules.lua`.
 
-## Estado dos testes
+## Credits
 
-Foi verificado com o servidor dedicado 3.0.19 (build 154458):
-- O UE4SS carrega no servidor e encontra todos os offsets do engine (UE 4.27).
-- O mod inicia, grava o estado e responde aos comandos do painel (cerca de 0,5 s por comando).
-- A leitura do template de item (`GetItemTemplateStruct`) e o line trace funcionam.
-- O painel foi testado ponta a ponta com `tools/mock-mod.js` (jogadores simulados): mapa, marcadores, inventário, dar item e teleporte.
-
-**Ainda não testado com um jogador real conectado:** teleporte, dar/remover item, cheats de status, kick e ban.
-Sem um cliente conectado, o servidor dedicado não carrega o mundo. Todos os comandos têm tratamento de erro e
-fallback (por exemplo, dar item tenta o caminho do controller e, se o inventário não mudar, coloca direto na mochila).
-Se algo falhar, a mensagem de erro aparece no painel e em `UE4SS.log`.
-
-## Desenvolvimento
-
-- `node tools/mock-mod.js <pasta>` simula o mod. Para usá-lo, rode o painel com `ISK_CONFIG=<config com ipcDir=pasta>`.
-- `dev/CXXHeaderDump/Icarus.hpp` traz o dump das classes do servidor gerado pelo UE4SS, como referência.
-- Para compilar o extrator: `cd tools/extractor && cargo build --release`.
-- `update-data.bat [pasta do jogo]` regenera `panel/public/data` no repositório.
-- `build-release.ps1` gera `dist/IcarusServerKit.zip` (kit) e `dist/IcarusServerKit-data.zip` (ícones e mapas, a partir de
-  `panel/public/data`). Os dois são assets da release usados pelo `setup.ps1`.
-- Para testar o instalador com um zip local: `$env:ISK_LOCAL_KIT = "...\IcarusServerKit.zip"` e depois `Get-Content setup.ps1 -Raw | iex`.
+Icarus and its artwork are © RocketWerkz. Icons, creature images and map tiles are extracted from the game for display in
+the panel only. UE4SS is MIT-licensed. This project is MIT-licensed.

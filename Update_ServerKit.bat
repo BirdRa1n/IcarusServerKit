@@ -1,6 +1,10 @@
 @echo off
-rem Icarus Server Kit - atualiza mod, painel, icones e mapas para a versao mais nova.
-rem Coloque este arquivo na pasta do servidor dedicado (a que tem IcarusServer.exe) e de dois cliques.
+rem Icarus Server Kit - updates the mod, panel, icons and maps to the latest release.
 cd /d "%~dp0"
-powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/BirdRa1n/IcarusServerKit/main/setup.ps1 | iex"
+if not exist "%~dp0IcarusServerKit\update.ps1" (
+  echo IcarusServerKit\update.ps1 not found. Run the installer from the README once.
+  pause
+  exit /b 1
+)
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0IcarusServerKit\update.ps1"
 pause

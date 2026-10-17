@@ -1,156 +1,90 @@
 <!doctype html>
-<html lang="pt-BR">
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark">
   <title>Icarus Server Kit</title>
-  <link rel="stylesheet" href="app.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Ccircle cx='16' cy='16' r='14' fill='%23f2a541'/%3E%3Cpath d='M9 21l7-12 7 12z' fill='%230b0e12'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="css/app.css">
 </head>
 <body>
+  <div class="backdrop" aria-hidden="true"><div class="planet"></div><div class="stars"></div><div class="stars s2"></div></div>
+
   <!-- login -->
-  <div id="login" class="login hidden">
-    <form id="loginForm" class="login-card">
-      <div class="brand big">ICARUS <span>SERVER KIT</span></div>
-      <label>Usuário<input name="name" autocomplete="username" value="admin" required></label>
-      <label>Senha<input name="password" type="password" autocomplete="current-password" required></label>
-      <button class="btn primary" type="submit">Entrar</button>
-      <div id="loginError" class="error"></div>
+  <section id="login" class="login" hidden>
+    <form id="loginForm" class="login-card glass">
+      <div class="brand brand-lg"><span class="brand-mark"></span><span>ICARUS</span><b>SERVER KIT</b></div>
+      <label><span data-i18n="login.user"></span><input name="name" autocomplete="username" value="admin" required></label>
+      <label><span data-i18n="login.password"></span><input name="password" type="password" autocomplete="current-password" required></label>
+      <button class="btn primary lg" type="submit" data-i18n="login.submit"></button>
+      <p id="loginError" class="form-error" role="alert"></p>
+      <div class="login-foot"><select class="lang-select" aria-label="Language"></select></div>
     </form>
-  </div>
+  </section>
 
   <!-- app -->
-  <div id="app" class="app hidden">
-    <header class="topbar">
-      <div class="brand">ICARUS <span>SERVER KIT</span></div>
-      <div class="status">
-        <span id="modStatus" class="pill off">Mod offline</span>
-        <span class="stat"><b id="statPlayers">0</b> jogadores</span>
-        <span class="stat">Mapa: <b id="statMap">—</b></span>
-        <span class="stat">Online há <b id="statUptime">—</b></span>
+  <div id="app" class="app" hidden>
+    <header class="topbar glass">
+      <div class="brand"><span class="brand-mark"></span><span>ICARUS</span><b>SERVER KIT</b></div>
+      <div class="chips">
+        <span id="statusChip" class="chip-status off"><i class="live"></i><span></span></span>
+        <span class="chip"><svg class="ic" data-icon="users"></svg><b id="statPlayers">0</b></span>
+        <span class="chip"><svg class="ic" data-icon="map"></svg><b id="statMap">—</b></span>
+        <span class="chip" id="chipHour" hidden><svg class="ic" data-icon="sun"></svg><b id="statHour"></b></span>
+        <span class="chip"><svg class="ic" data-icon="clock"></svg><b id="statUptime">—</b></span>
+        <span class="chip warn" id="chipCountdown" hidden><svg class="ic" data-icon="timer"></svg><b id="statCountdown"></b></span>
       </div>
-      <div class="user">
-        <span id="userName"></span>
-        <button id="logoutBtn" class="btn ghost small">Sair</button>
+      <div class="top-actions">
+        <select class="lang-select" aria-label="Language"></select>
+        <span class="user"><svg class="ic" data-icon="user"></svg><span id="userName"></span></span>
+        <button id="logoutBtn" class="btn ghost sm" data-i18n="top.logout"></button>
       </div>
     </header>
 
     <main class="main">
       <section class="map-wrap">
-        <div class="map-toolbar">
-          <select id="mapSelect" title="Mapa exibido"></select>
-          <label class="check"><input type="checkbox" id="followMap" checked> seguir mapa do servidor</label>
+        <div class="map-toolbar glass">
+          <select id="mapSelect" aria-label="Map"></select>
+          <label class="switch"><input type="checkbox" id="followMap" checked><i></i><span data-i18n="map.follow"></span></label>
           <span class="spacer"></span>
           <span id="cursorPos" class="mono muted"></span>
-          <button id="zoomFit" class="btn ghost small" title="Enquadrar mapa">⤢</button>
+          <button id="zoomIn" class="btn icon ghost" aria-label="+"><svg class="ic" data-icon="plus"></svg></button>
+          <button id="zoomOut" class="btn icon ghost" aria-label="-"><svg class="ic" data-icon="minus"></svg></button>
+          <button id="zoomFit" class="btn icon ghost" data-i18n-title="map.fit"><svg class="ic" data-icon="fit"></svg></button>
         </div>
         <div id="map" class="map">
           <div id="mapLayer" class="map-layer"></div>
           <div id="markerLayer" class="marker-layer"></div>
+          <div class="map-vignette" aria-hidden="true"></div>
         </div>
-        <div id="mapMenu" class="ctx hidden"></div>
+        <div id="mapMenu" class="ctx glass" hidden></div>
       </section>
 
-      <aside class="side">
-        <nav class="tabs">
-          <button data-tab="players" class="active">Jogadores</button>
-          <button data-tab="items">Itens</button>
-          <button data-tab="server">Servidor</button>
-          <button data-tab="log">Log <span id="logBadge" class="badge hidden">0</span></button>
+      <aside class="side glass">
+        <nav class="tabs" role="tablist">
+          <button data-tab="players" class="active"><svg class="ic" data-icon="users"></svg><span data-i18n="tab.players"></span></button>
+          <button data-tab="items"><svg class="ic" data-icon="box"></svg><span data-i18n="tab.items"></span></button>
+          <button data-tab="creatures"><svg class="ic" data-icon="paw"></svg><span data-i18n="tab.creatures"></span></button>
+          <button data-tab="world"><svg class="ic" data-icon="globe"></svg><span data-i18n="tab.world"></span></button>
+          <button data-tab="rules"><svg class="ic" data-icon="shield"></svg><span data-i18n="tab.rules"></span></button>
+          <button data-tab="log"><svg class="ic" data-icon="list"></svg><span data-i18n="tab.log"></span><i id="logBadge" class="badge" hidden>0</i></button>
+          <span class="tab-ink" aria-hidden="true"></span>
         </nav>
-
-        <!-- players -->
-        <div id="tab-players" class="tab active">
-          <div id="playerList" class="player-list"></div>
-          <div id="playerDetail" class="player-detail hidden"></div>
-        </div>
-
-        <!-- items -->
-        <div id="tab-items" class="tab">
-          <div class="item-filters">
-            <input id="itemSearch" type="search" placeholder="Buscar item (nome ou ID)…">
-            <div id="itemCats" class="chips"></div>
-          </div>
-          <div id="itemCount" class="muted small-text"></div>
-          <div id="itemGrid" class="item-grid"></div>
-          <button id="itemMore" class="btn ghost hidden">Mostrar mais</button>
-        </div>
-
-        <!-- server -->
-        <div id="tab-server" class="tab">
-          <div class="card">
-            <h3>Mensagem para todos</h3>
-            <form id="broadcastForm" class="row">
-              <input name="message" placeholder="Mensagem do servidor…" required>
-              <button class="btn primary">Enviar</button>
-            </form>
-          </div>
-          <div class="card">
-            <h3>Velocidade do tempo</h3>
-            <form id="dilationForm" class="row">
-              <input name="value" type="number" step="0.1" min="0.1" max="10" value="1">
-              <button class="btn">Aplicar</button>
-            </form>
-            <p class="muted small-text">1 = normal. Afeta o servidor inteiro.</p>
-          </div>
-          <div class="card">
-            <h3>Comando de console</h3>
-            <form id="consoleForm" class="row">
-              <input name="command" placeholder="ex.: stat fps" required>
-              <button class="btn">Executar</button>
-            </form>
-          </div>
-          <div class="card">
-            <h3>Diagnóstico</h3>
-            <button id="selftestBtn" class="btn">Testar mod</button>
-            <pre id="selftestOut" class="mono pre hidden"></pre>
-          </div>
-        </div>
-
-        <!-- log -->
-        <div id="tab-log" class="tab">
-          <div class="log-filters chips">
-            <button class="chip active" data-kind="">Tudo</button>
-            <button class="chip" data-kind="chat">Chat</button>
-            <button class="chip" data-kind="admin">Admin</button>
-            <button class="chip" data-kind="join">Entradas</button>
-            <button class="chip" data-kind="error">Erros</button>
-          </div>
-          <div id="logList" class="log-list"></div>
+        <div class="views">
+          <section id="view-players" class="view active"></section>
+          <section id="view-items" class="view"></section>
+          <section id="view-creatures" class="view"></section>
+          <section id="view-world" class="view"></section>
+          <section id="view-rules" class="view"></section>
+          <section id="view-log" class="view"></section>
         </div>
       </aside>
     </main>
   </div>
 
-  <!-- give item dialog -->
-  <dialog id="giveDialog" class="dialog">
-    <form method="dialog" id="giveForm">
-      <div class="give-head">
-        <img id="giveIcon" alt="">
-        <div>
-          <div id="giveName" class="give-name"></div>
-          <div id="giveId" class="mono muted small-text"></div>
-        </div>
-      </div>
-      <p id="giveDesc" class="muted"></p>
-      <div id="giveMeta" class="muted small-text"></div>
-      <label>Jogador<select id="givePlayer" required></select></label>
-      <label>Quantidade
-        <div class="row">
-          <input id="giveCount" type="number" min="1" max="100000" value="1">
-          <button type="button" class="btn ghost small" data-qty="1">1</button>
-          <button type="button" class="btn ghost small" data-qty="10">10</button>
-          <button type="button" class="btn ghost small" data-qty="stack">Pilha</button>
-          <button type="button" class="btn ghost small" data-qty="100">100</button>
-        </div>
-      </label>
-      <div class="row end">
-        <button value="cancel" class="btn ghost">Cancelar</button>
-        <button id="giveSubmit" value="ok" class="btn primary">Dar item</button>
-      </div>
-    </form>
-  </dialog>
-
-  <div id="toasts" class="toasts"></div>
-  <script src="app.js"></script>
+  <div id="modalRoot"></div>
+  <div id="toasts" class="toasts" aria-live="polite"></div>
+  <script type="module" src="js/main.js"></script>
 </body>
 </html>
