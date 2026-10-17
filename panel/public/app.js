@@ -123,6 +123,8 @@ function screenToWorld(sx, sy) {
 function fitMap() {
   if (!M.bounds) return;
   const r = M.el.getBoundingClientRect();
+  // layout not ready yet (panel just shown): try again on the next frame
+  if (!r.width || !r.height) return requestAnimationFrame(fitMap);
   const w = M.bounds.maxY - M.bounds.minY;
   const h = M.bounds.maxX - M.bounds.minX;
   M.scale = Math.min(r.width / w, r.height / h) * 0.96;
@@ -219,7 +221,7 @@ M.el.addEventListener(
   { passive: false },
 );
 // refit while the user has not panned/zoomed (also fixes the first fit before layout settles)
-new ResizeObserver(() => (M.userMoved ? applyTransform() : fitMap())).observe(M.el);
+new ResizeObserver(() => (M.userMoved && M.scale > 0 ? applyTransform() : fitMap())).observe(M.el);
 $('#zoomFit').addEventListener('click', () => {
   M.userMoved = false;
   fitMap();
@@ -359,7 +361,7 @@ function selectPlayer(id) {
   renderDetail();
   positionMarkers();
   const p = S.state.players.find((x) => x.id === id);
-  if (p?.pos && M.bounds) {
+  if (p?.pos && M.bounds && M.scale > 0) {
     const r = M.el.getBoundingClientRect();
     const [px, py] = W2P(p.pos.x, p.pos.y);
     M.ox = r.width / 2 - px * M.scale;
