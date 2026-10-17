@@ -277,3 +277,10 @@ fn half_to_f32(h: u16) -> f32 {
         s * (1.0 + m / 1024.0) * 2f32.powi(e - 15)
     }
 }
+
+/// Opaque images (map tiles) as JPEG: about a sixth of the PNG size.
+pub fn save_jpeg(img: &Image, path: &std::path::Path, quality: u8) -> Result<()> {
+    let enc = jpeg_encoder::Encoder::new_file(path, quality).map_err(|e| anyhow!("jpeg: {e}"))?;
+    enc.encode(&img.rgba, img.width as u16, img.height as u16, jpeg_encoder::ColorType::Rgba)
+        .map_err(|e| anyhow!("jpeg: {e}"))
+}

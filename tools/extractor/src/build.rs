@@ -194,6 +194,11 @@ fn build_items(paks: &PakSet, tables: &HashMap<String, Value>, loc: &HashMap<Str
                         icons_done.insert(file.clone());
                         icon = json!(file);
                     }
+                    // no texture data (dedicated-server paks): reuse an icon from the data package
+                    Err(_) if out.join("icons").join(&file).exists() => {
+                        icons_done.insert(file.clone());
+                        icon = json!(file);
+                    }
                     Err(e) => {
                         icon_fail += 1;
                         if icon_fail < 3 {
@@ -309,7 +314,7 @@ fn build_maps(paks: &PakSet, tables: &HashMap<String, Value>, loc: &HashMap<Stri
                 let (o, e) = (&g["Origin"], &g["BoxExtent"]);
                 let f = |v: &Value| v.as_f64().unwrap_or(0.0);
                 json!({
-                    "file": format!("{k}/{i}.png"),
+                    "file": format!("{k}/{i}.jpg"),
                     "minX": f(&o["X"]) - f(&e["X"]), "maxX": f(&o["X"]) + f(&e["X"]),
                     "minY": f(&o["Y"]) - f(&e["Y"]), "maxY": f(&o["Y"]) + f(&e["Y"]),
                 })
@@ -325,18 +330,22 @@ fn build_maps(paks: &PakSet, tables: &HashMap<String, Value>, loc: &HashMap<Stri
         let mut ok = true;
         for (i, t) in texs.iter().enumerate() {
             // dedicated-server paks ship without texture data
+            let target = dir.join(format!("{i}.jpg"));
             let img = t.as_str().and_then(game_path).and_then(|p| texture::load_texture(paks, &p).ok());
-            let Some(img) = img else {
-                ok = false;
-                break;
-            };
-            texture::save_png(&img, &dir.join(format!("{i}.png")))?;
+            match img {
+                Some(img) => texture::save_jpeg(&img, &target, 85)?,
+                // no texture data (dedicated-server paks): keep a tile from the data package
+                None if target.exists() => {}
+                None => {
+                    ok = false;
+                    break;
+                }
+            }
         }
         if ok {
             eprintln!("map {k} ({display}): {} tiles", tiles.len());
         } else {
             eprintln!("map {k} ({display}): sem texturas (só coordenadas)");
-            let _ = std::fs::remove_dir_all(&dir);
             tiles.clear();
         }
         let mm = &w["MinimapData"];

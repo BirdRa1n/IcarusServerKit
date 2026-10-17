@@ -5,6 +5,7 @@
 #
 # Opcoes (variaveis de ambiente, definidas antes do comando):
 #   $env:ISK_GAME_DIR  = "D:\SteamLibrary\steamapps\common\Icarus"   # pasta do jogo (para icones e mapa)
+#   $env:ISK_GAME_DIR  = "none"                                       # nao procurar o jogo: baixa o pacote pronto
 #   $env:ISK_SERVER_DIR = "D:\ICARUS Dedicated Server"               # se nao estiver rodando na pasta do servidor
 #   $env:ISK_LOCAL_KIT = "C:\caminho\IcarusServerKit.zip"            # instalar de um zip local (sem baixar)
 #
@@ -18,6 +19,7 @@
     $Repo = 'BirdRa1n/IcarusServerKit'
     $KitUrl = "https://github.com/$Repo/releases/latest/download/IcarusServerKit.zip"
     $Ue4ssUrl = "https://github.com/$Repo/releases/latest/download/UE4SS.zip"
+    $DataUrl = "https://github.com/$Repo/releases/latest/download/IcarusServerKit-data.zip"
 
     function Step($msg) { Write-Host "`n==> $msg" -ForegroundColor Cyan }
     function Ok($msg) { Write-Host "    $msg" -ForegroundColor Green }
@@ -133,6 +135,7 @@
             }
             $candidates += $libs | ForEach-Object { Join-Path $_ 'steamapps\common\Icarus' }
         } catch {}
+        if ($env:ISK_GAME_DIR -eq 'none') { $candidates = @() }   # force the downloadable data package
         foreach ($c in $candidates) {
             if ($c -and (Test-Path (Join-Path $c $pak))) { $game = (Resolve-Path $c).Path; break }
         }
@@ -143,9 +146,21 @@
             Ok "jogo encontrado em $game"
             $source = $game
         } else {
-            Warn 'Instalacao do jogo (cliente) nao encontrada: o painel funcionara sem icones e sem a imagem do mapa.'
-            Warn 'Para ter icones e mapa: defina $env:ISK_GAME_DIR com a pasta do Icarus e rode o instalador de novo.'
+            # dedicated-server paks carry no textures: fetch the prebuilt icons and map tiles
+            Ok 'jogo (cliente) nao encontrado - baixando pacote de icones e mapas (~80 MB)'
+            $dz = Join-Path $Tmp 'data.zip'
+            try {
+                Invoke-WebRequest $DataUrl -OutFile $dz -UseBasicParsing
+                New-Item -ItemType Directory -Force $data | Out-Null
+                Expand-Archive $dz $data -Force
+                Ok 'pacote de dados instalado'
+            } catch {
+                Warn "Nao foi possivel baixar o pacote de dados: $($_.Exception.Message)"
+                Warn 'O painel funcionara sem icones e com o mapa em grade. Defina $env:ISK_GAME_DIR para usar o jogo.'
+            }
         }
+        # items/maps are always rebuilt from the installed files (matches the server version);
+        # images missing from the server paks are taken from the data package
         # the extractor logs to stderr; Windows PowerShell would turn that into errors under 'Stop'
         $ErrorActionPreference = 'Continue'
         & $extractor build $source $data 2>&1 | ForEach-Object { Write-Host "    $_" }

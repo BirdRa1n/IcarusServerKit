@@ -45,8 +45,9 @@ O instalador:
 - instala o [UE4SS](https://github.com/UE4SS-RE/RE-UE4SS) em `Icarus\Binaries\Win64` (mantém um UE4SS que já esteja instalado);
 - copia e ativa o mod em `ue4ss\Mods\IcarusServerKit`;
 - procura o **jogo Icarus** (bibliotecas da Steam ou pastas ao lado do servidor) e gera a lista de itens, os ícones e
-  os mapas a partir dos arquivos do jogo. Os arquivos do servidor dedicado não têm texturas: sem o jogo instalado, o
-  painel funciona sem ícones e mostra o mapa como uma grade de coordenadas;
+  os mapas a partir dos arquivos do jogo. Os arquivos do servidor dedicado não têm texturas: se o jogo não estiver
+  instalado, o instalador baixa o **pacote de ícones e mapas** (`IcarusServerKit-data.zip`, ~80 MB) da release.
+  A lista de itens é sempre gerada a partir do servidor instalado, para acompanhar a versão dele;
 - oferece instalar o Node.js via `winget` se ele não existir;
 - cria `Start_Panel.bat`.
 
@@ -55,6 +56,7 @@ Para atualizar, rode o mesmo comando de novo. O `config.json` é mantido.
 Opções (defina antes do comando):
 ```powershell
 $env:ISK_GAME_DIR = "E:\SteamLibrary\steamapps\common\Icarus"   # onde está o jogo, se não for achado sozinho
+# $env:ISK_GAME_DIR = "none"   # não procurar o jogo: usa o pacote de ícones e mapas da release
 irm https://raw.githubusercontent.com/BirdRa1n/IcarusServerKit/main/setup.ps1 | iex
 ```
 
@@ -109,5 +111,6 @@ Se algo falhar, a mensagem de erro aparece no painel e em `UE4SS.log`.
 - `dev/CXXHeaderDump/Icarus.hpp` traz o dump das classes do servidor gerado pelo UE4SS, como referência.
 - Para compilar o extrator: `cd tools/extractor && cargo build --release`.
 - `update-data.bat [pasta do jogo]` regenera `panel/public/data` no repositório.
-- `build-release.ps1` gera `dist/IcarusServerKit.zip`, o asset da release usado pelo `setup.ps1`.
+- `build-release.ps1` gera `dist/IcarusServerKit.zip` (kit) e `dist/IcarusServerKit-data.zip` (ícones e mapas, a partir de
+  `panel/public/data`). Os dois são assets da release usados pelo `setup.ps1`.
 - Para testar o instalador com um zip local: `$env:ISK_LOCAL_KIT = "...\IcarusServerKit.zip"` e depois `Get-Content setup.ps1 -Raw | iex`.
