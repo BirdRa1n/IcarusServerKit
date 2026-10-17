@@ -242,7 +242,8 @@ function serveStatic(req, res, urlPath) {
   fs.stat(file, (err, st) => {
     if (err || !st.isFile()) return send(res, 404, 'not found');
     const ext = path.extname(file).toLowerCase();
-    const cache = p.startsWith('/data/') ? 'public, max-age=86400' : 'no-cache';
+    // icons/map tiles can be cached; items.json/maps.json change whenever the data is rebuilt
+    const cache = p.startsWith('/data/') && ext !== '.json' ? 'public, max-age=86400' : 'no-cache';
     res.writeHead(200, { 'Content-Type': MIME[ext] || 'application/octet-stream', 'Content-Length': st.size, 'Cache-Control': cache });
     fs.createReadStream(file).pipe(res);
   });

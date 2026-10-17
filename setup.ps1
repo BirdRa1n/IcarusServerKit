@@ -63,6 +63,22 @@
         $cfg = Join-Path $Kit 'panel\config.json'
         $cfgBackup = $null
         if (Test-Path $cfg) { $cfgBackup = Get-Content $cfg -Raw }
+
+        # a running panel is closed during the update and reopened at the end
+        $panelPort = 8090
+        if ($cfgBackup) { try { $p = ($cfgBackup | ConvertFrom-Json).port; if ($p) { $panelPort = [int]$p } } catch {} }
+        $panelWasRunning = $false
+        try {
+            $owners = Get-NetTCPConnection -LocalPort $panelPort -State Listen -ErrorAction Stop | Select-Object -ExpandProperty OwningProcess -Unique
+            foreach ($o in $owners) {
+                $proc = Get-Process -Id $o -ErrorAction SilentlyContinue
+                if ($proc -and $proc.ProcessName -eq 'node') {
+                    Stop-Process -Id $o -Force
+                    $panelWasRunning = $true
+                }
+            }
+            if ($panelWasRunning) { Ok "painel em execucao (porta $panelPort) fechado para atualizar" }
+        } catch {}
         foreach ($d in 'panel\public\index.html', 'panel\public\app.js', 'panel\public\app.css', 'panel\server.js', 'tools', 'mod', 'README.md') {
             $p = Join-Path $Kit $d
             if (Test-Path $p) { Remove-Item $p -Recurse -Force }
@@ -185,15 +201,25 @@
             Warn 'Node.js nao encontrado. Instale o Node.js 18+ : https://nodejs.org'
         }
 
-        # ------------------------------------------------------------ launcher
+        # ------------------------------------------------------------ launchers
         $bat = Join-Path $ServerDir 'Start_Panel.bat'
         Set-Content $bat "@echo off`r`nrem Icarus Server Kit - painel web`r`ncd /d `"%~dp0IcarusServerKit\panel`"`r`nif exist `"%ProgramFiles%\nodejs\node.exe`" (`"%ProgramFiles%\nodejs\node.exe`" server.js) else (node server.js)`r`npause`r`n" -Encoding Ascii
+        $upd = Join-Path $ServerDir 'Update_ServerKit.bat'
+        Set-Content $upd "@echo off`r`nrem Icarus Server Kit - atualiza mod, painel, icones e mapas para a versao mais nova`r`ncd /d `"%~dp0`"`r`npowershell -NoProfile -ExecutionPolicy Bypass -Command `"irm https://raw.githubusercontent.com/$Repo/main/setup.ps1 | iex`"`r`npause`r`n" -Encoding Ascii
 
+        $kitVersion = ''
+        $vf = Join-Path $Kit 'VERSION'
+        if (Test-Path $vf) { $kitVersion = ' ' + (Get-Content $vf -Raw).Trim() }
         Write-Host ''
-        Write-Host 'Instalacao concluida!' -ForegroundColor Green
+        Write-Host "Icarus Server Kit$kitVersion instalado!" -ForegroundColor Green
         Write-Host '  1. Inicie o servidor normalmente (Start_Server.bat)'
         Write-Host '  2. Rode Start_Panel.bat (na primeira vez ele mostra a senha do usuario admin)'
-        Write-Host '  3. Abra http://localhost:8090'
+        Write-Host "  3. Abra http://localhost:$panelPort  (se ja estava aberto: Ctrl+F5)"
+        Write-Host '  Para atualizar no futuro: Update_ServerKit.bat'
+        if ($panelWasRunning) {
+            Start-Process -FilePath $bat -WorkingDirectory $ServerDir
+            Ok 'painel reaberto em outra janela'
+        }
     } finally {
         Remove-Item $Tmp -Recurse -Force -ErrorAction SilentlyContinue
     }

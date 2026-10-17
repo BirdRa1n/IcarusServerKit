@@ -716,7 +716,7 @@ async function start() {
   $('#login').classList.add('hidden');
   $('#app').classList.remove('hidden');
 
-  const [items, maps] = await Promise.all([fetch('data/items.json').then((r) => r.json()), fetch('data/maps.json').then((r) => r.json())]);
+  const [items, maps] = await Promise.all([fetch('data/items.json', { cache: 'no-cache' }).then((r) => r.json()), fetch('data/maps.json', { cache: 'no-cache' }).then((r) => r.json())]);
   S.items = items
     .filter((i) => i.name && !/^INVTEXT|\[DNT\]/.test(i.name))
     .map((i) => ({ ...i, _search: normalize(`${i.name} ${i.name_en} ${i.id}`) }))

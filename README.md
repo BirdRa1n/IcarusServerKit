@@ -49,9 +49,7 @@ O instalador:
   instalado, o instalador baixa o **pacote de ícones e mapas** (`IcarusServerKit-data.zip`, ~80 MB) da release.
   A lista de itens é sempre gerada a partir do servidor instalado, para acompanhar a versão dele;
 - oferece instalar o Node.js via `winget` se ele não existir;
-- cria `Start_Panel.bat`.
-
-Para atualizar, rode o mesmo comando de novo. O `config.json` é mantido.
+- cria `Start_Panel.bat` (abre o painel) e `Update_ServerKit.bat` (atualiza o kit).
 
 Opções (defina antes do comando):
 ```powershell
@@ -60,7 +58,38 @@ $env:ISK_GAME_DIR = "E:\SteamLibrary\steamapps\common\Icarus"   # onde está o j
 irm https://raw.githubusercontent.com/BirdRa1n/IcarusServerKit/main/setup.ps1 | iex
 ```
 
-### config.json
+## Atualizar
+
+Dê dois cliques em **`Update_ServerKit.bat`**, na pasta do servidor dedicado. Ele baixa a versão mais nova do mod, do
+painel, dos ícones e dos mapas e reinstala tudo.
+
+- Feche o servidor antes: com o servidor aberto, o atualizador para sem mudar nada.
+- Se o painel estiver aberto, ele é fechado e reaberto sozinho. No navegador, recarregue com **Ctrl+F5**.
+- O `config.json` (usuários e senhas) é mantido.
+
+Se a sua instalação é anterior a esse arquivo, baixe
+[`Update_ServerKit.bat`](https://raw.githubusercontent.com/BirdRa1n/IcarusServerKit/main/Update_ServerKit.bat)
+(botão direito → "Salvar link como…") para a pasta do servidor, ou rode de novo o comando da instalação.
+
+Conteúdo do `.bat`, caso prefira criar o arquivo à mão:
+```bat
+@echo off
+cd /d "%~dp0"
+powershell -NoProfile -ExecutionPolicy Bypass -Command "irm https://raw.githubusercontent.com/BirdRa1n/IcarusServerKit/main/setup.ps1 | iex"
+pause
+```
+
+### Ícones ou mapa não aparecem
+
+O mapa aparece em grade e os itens sem imagem quando o pacote de ícones e mapas não foi instalado. Isso acontece em
+instalações feitas antes da v1.1.0, ou quando o download falhou.
+
+1. Feche o servidor e rode `Update_ServerKit.bat`. Durante a instalação deve aparecer `pacote de dados instalado` ou
+   `jogo encontrado em ...`.
+2. Recarregue o painel com **Ctrl+F5**.
+
+
+## Configuração (config.json)
 
 ```json
 {
@@ -79,7 +108,7 @@ uma VPN ou um proxy com HTTPS: o painel usa HTTP puro.
 
 ## Depois de uma atualização do Icarus
 
-- Itens e mapas novos: rode o instalador de novo. Ele regenera os dados a partir do jogo.
+- Rode `Update_ServerKit.bat`. Ele regenera a lista de itens a partir do servidor atualizado.
 - Se o jogo mudar as funções usadas pelo mod, abra **Servidor → Diagnóstico → Testar mod** no painel para ver o que falhou.
 
 ## Uso

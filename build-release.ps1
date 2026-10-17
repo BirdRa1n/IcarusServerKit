@@ -16,7 +16,7 @@ Copy-Item "$root\panel\server.js" "$stage\panel\"
 Copy-Item "$root\panel\public\index.html", "$root\panel\public\app.js", "$root\panel\public\app.css" "$stage\panel\public\"
 Copy-Item "$root\mod\IcarusServerKit\Scripts\*.lua" "$stage\mod\IcarusServerKit\Scripts\"
 Copy-Item "$root\tools\extractor\target\release\extractor.exe", "$root\tools\mock-mod.js" "$stage\tools\"
-Copy-Item "$root\README.md", "$root\LICENSE" $stage
+Copy-Item "$root\README.md", "$root\LICENSE", "$root\VERSION", "$root\Update_ServerKit.bat" $stage
 
 Compress-Archive (Join-Path $dist 'stage\IcarusServerKit') (Join-Path $dist 'IcarusServerKit.zip')
 Remove-Item (Join-Path $dist 'stage') -Recurse -Force
