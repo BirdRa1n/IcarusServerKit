@@ -39,7 +39,16 @@ function loadConfig() {
     console.log(`[panel] config.json criado em ${CONFIG_PATH}`);
     console.log(`[panel] usuário: admin   senha: ${password}   (altere em config.json)`);
   }
-  const cfg = { ...DEFAULT_CONFIG, ...JSON.parse(fs.readFileSync(CONFIG_PATH, 'utf8')) };
+  // editors and Windows PowerShell 5.1 may save the file with a UTF-8 BOM, which JSON.parse rejects
+  const text = fs.readFileSync(CONFIG_PATH, 'utf8').replace(/^﻿/, '');
+  let user;
+  try {
+    user = JSON.parse(text);
+  } catch (e) {
+    console.error(`[panel] config.json inválido (${CONFIG_PATH}): ${e.message}`);
+    process.exit(1);
+  }
+  const cfg = { ...DEFAULT_CONFIG, ...user };
   cfg.ipcDir = path.resolve(ROOT, cfg.ipcDir);
   return cfg;
 }

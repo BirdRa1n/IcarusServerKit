@@ -62,11 +62,11 @@
         $Kit = Join-Path $ServerDir 'IcarusServerKit'
         $cfg = Join-Path $Kit 'panel\config.json'
         $cfgBackup = $null
-        if (Test-Path $cfg) { $cfgBackup = Get-Content $cfg -Raw }
+        if (Test-Path $cfg) { $cfgBackup = [IO.File]::ReadAllText($cfg) }
 
         # a running panel is closed during the update and reopened at the end
         $panelPort = 8090
-        if ($cfgBackup) { try { $p = ($cfgBackup | ConvertFrom-Json).port; if ($p) { $panelPort = [int]$p } } catch {} }
+        if ($cfgBackup) { try { $p = ($cfgBackup.TrimStart([char]0xFEFF) | ConvertFrom-Json).port; if ($p) { $panelPort = [int]$p } } catch {} }
         $panelWasRunning = $false
         try {
             $owners = Get-NetTCPConnection -LocalPort $panelPort -State Listen -ErrorAction Stop | Select-Object -ExpandProperty OwningProcess -Unique
@@ -85,7 +85,11 @@
         }
         New-Item -ItemType Directory -Force $Kit | Out-Null
         Copy-Item (Join-Path $Src '*') $Kit -Recurse -Force
-        if ($cfgBackup) { Set-Content $cfg $cfgBackup -NoNewline -Encoding UTF8; Ok 'config.json existente mantido' }
+        if ($cfgBackup) {
+            # UTF-8 without BOM: Set-Content -Encoding UTF8 adds a BOM in Windows PowerShell 5.1 and breaks JSON.parse
+            [IO.File]::WriteAllText($cfg, $cfgBackup.TrimStart([char]0xFEFF), (New-Object Text.UTF8Encoding $false))
+            Ok 'config.json existente mantido'
+        }
         Ok $Kit
 
         # ------------------------------------------------------------ UE4SS
