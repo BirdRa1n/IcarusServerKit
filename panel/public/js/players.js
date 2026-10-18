@@ -60,6 +60,7 @@ export function update() {
     }
     const pos = v.querySelector('#pdPos');
     if (pos) pos.textContent = fmtPos(sel);
+    syncPerks(sel);
     requestAnimationFrame(animateBars);
   }
 }
@@ -82,7 +83,7 @@ function meta(p) {
 function row(p, i) {
   return `<div class="player-row ${p.id === store.selected ? 'selected' : ''}" data-id="${esc(p.id)}" style="--i:${i}">
       <div class="avatar">${esc(initials(p.name))}</div>
-      <div class="pname">${esc(p.name)} ${p.exempt ? `<span class="tag good">${esc(t('players.exempt'))}</span>` : ''}</div>
+      <div class="pname">${esc(p.name)} ${p.exempt ? `<span class="tag good">${esc(t('players.exempt'))}</span>` : ''}${p.perks && Object.keys(p.perks).length ? '<span class="tag warn">∞</span>' : ''}</div>
       <div class="meta">${meta(p)}</div>
     </div>`;
 }
@@ -100,6 +101,59 @@ function stats(p) {
     })
     .join('');
   return `<div class="stats" data-keys="${keys.join('|')}">${bars}</div>`;
+}
+
+// "Unlimited" toggles: stats refilled by the mod whenever they drop, and immunity to conditions.
+const PERKS = [
+  ['health', 'heart', 'stat.health'],
+  ['stamina', 'activity', 'stat.stamina'],
+  ['food', 'gift', 'stat.food'],
+  ['water', 'cloud', 'stat.water'],
+  ['oxygen', 'sun', 'stat.oxygen'],
+  ['immune', 'shield', 'perks.immune'],
+];
+
+// Local value of a toggle until the server state reflects it (settings are applied within a few seconds).
+const perkOverride = new Map(); // player id -> { perks, until }
+function perksOf(p) {
+  const o = perkOverride.get(p.id);
+  if (o && o.until > Date.now() && JSON.stringify(o.perks) !== JSON.stringify(p.perks || {})) return o.perks;
+  perkOverride.delete(p.id);
+  return p.perks || {};
+}
+
+function perksHtml(p) {
+  const on = perksOf(p);
+  return `<div class="perks">
+      <div class="perks-head"><span class="section-title">∞ ${esc(t('perks.title'))}</span><span class="muted" style="font-size:11.5px">${esc(t('perks.hint'))}</span></div>
+      <div class="pills">${PERKS.map(([k, ic, label]) => `<button class="pill perk ${on[k] ? 'active' : ''}" data-perk="${k}">${icon(ic)}${esc(t(label))}</button>`).join('')}
+        <button class="pill perk" data-perk="all">∞ ${esc(t('all'))}</button></div>
+    </div>`;
+}
+
+function syncPerks(p) {
+  const on = perksOf(p);
+  $$('.perk[data-perk]', view()).forEach((b) => b.dataset.perk !== 'all' && b.classList.toggle('active', !!on[b.dataset.perk]));
+}
+
+async function togglePerk(p, key) {
+  const current = { ...perksOf(p) };
+  const next = {};
+  if (key === 'all') {
+    const allOn = PERKS.every(([k]) => current[k]);
+    for (const [k] of PERKS) if (!allOn) next[k] = true;
+  } else {
+    Object.assign(next, current);
+    if (next[key]) delete next[key];
+    else next[key] = true;
+  }
+  perkOverride.set(p.id, { perks: next, until: Date.now() + 8000 });
+  syncPerks(p);
+  const r = await command('set_perks', { id: p.steamId || p.id, name: p.name, perks: next });
+  if (!r.ok) {
+    perkOverride.delete(p.id);
+    syncPerks(p);
+  }
 }
 
 function animateBars() {
@@ -120,6 +174,7 @@ function detail(p) {
         <button class="btn icon ghost" data-a="close">${icon('x')}</button>
       </div>
       ${stats(p)}
+      ${perksHtml(p)}
       <div class="actions">
         ${a('heal', 'heart', 'act.heal')}${a('xp', 'star', 'act.xp')}${a('give', 'gift', 'act.give')}
         ${a('spawn', 'paw', 'act.spawn')}${a('tp', 'crosshair', 'act.tp')}${a('stats', 'sliders', 'act.stats')}
@@ -136,6 +191,7 @@ function bindDetail(p) {
   const v = view();
   requestAnimationFrame(animateBars);
   $$('[data-a]', v).forEach((b) => bindButton(b, () => action(b.dataset.a, p)));
+  $$('.perk[data-perk]', v).forEach((b) => (b.onclick = () => togglePerk(player(p.id) || p, b.dataset.perk)));
   bindSlots();
 }
 

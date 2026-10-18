@@ -29,6 +29,8 @@ const MOD_COMMANDS = {
   remove_item: 'admin',
   clear_inventory: 'admin',
   heal: 'admin',
+  cure: 'admin',
+  get_conditions: 'viewer',
   set_stat: 'admin',
   add_xp: 'admin',
   kill: 'admin',
@@ -40,7 +42,7 @@ const MOD_COMMANDS = {
   spawn_creature: 'admin',
   console: 'admin',
 };
-const QUIET = new Set(['ping', 'get_inventory', 'selftest']);
+const QUIET = new Set(['ping', 'get_inventory', 'selftest', 'get_conditions']);
 
 function send(res, code, body, headers = {}) {
   const json = typeof body === 'object' && !Buffer.isBuffer(body);
@@ -103,6 +105,15 @@ function createServer({ cfg, auth, link, settings, events }) {
     if (cmd.type === 'unban') {
       settings.update((s) => (s.bans = s.bans.filter((b) => b.id !== String(cmd.id))));
       return { ok: true, message: String(cmd.id) };
+    }
+    if (cmd.type === 'set_perks') {
+      const id = String(cmd.id || '');
+      if (!id) return { ok: false, error: 'invalid player' };
+      settings.update((s) => {
+        s.perks[id] = cmd.perks || {};
+      });
+      const enabled = Object.keys(settings.get().perks[id] || {});
+      return { ok: true, message: `${cmd.name || id}: ${enabled.length ? enabled.join(', ') : '-'}` };
     }
     if (cmd.type === 'set_exempt') {
       const id = String(cmd.id || '');

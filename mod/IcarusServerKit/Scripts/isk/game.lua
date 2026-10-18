@@ -166,6 +166,51 @@ function M.set_stat(st, key, percent)
     return value, mx
 end
 
+------------------------------------------------------------------------------- conditions
+
+-- EModifierType values that are harmful: Debuff (broken leg, wounds, infections, poisoning,
+-- hypothermia...), Aura_Negative and Radiation. Buffs from food, medicine and items are kept.
+local HARMFUL = { [1] = true, [4] = true, [5] = true }
+local modifier_class = nil
+
+--- UModifierStateComponents attached to an actor.
+function M.modifiers(actor)
+    if not modifier_class then
+        modifier_class = StaticFindObject("/Script/Icarus.ModifierStateComponent")
+    end
+    local list = {}
+    local comps = valid(modifier_class) and try(function() return actor:K2_GetComponentsByClass(modifier_class) end)
+    if comps then
+        comps:ForEach(function(_, c)
+            local comp = c:get()
+            if valid(comp) then list[#list + 1] = comp end
+        end)
+        return list
+    end
+    -- fallback: scan every modifier and keep the ones owned by the actor
+    for _, comp in ipairs(FindAllOf("ModifierStateComponent") or {}) do
+        if valid(comp) and try(function() return comp:GetOwner() end) == actor then list[#list + 1] = comp end
+    end
+    return list
+end
+
+--- Ends every harmful condition on the player's character. Returns the removed modifier names.
+function M.cure(pc)
+    local pawn = M.pawn(pc)
+    if not pawn then return {} end
+    local removed = {}
+    for _, comp in ipairs(M.modifiers(pawn)) do
+        local kind = try(function() return comp.CachedModifierStateData.Type end)
+        if HARMFUL[kind] then
+            -- a near-zero lifetime lets the game expire it through its normal path (effects, UI, save)
+            if try(function() comp:SetModifierLifeTime(0.05); return true end) then
+                removed[#removed + 1] = try(function() return str(comp.DataRowHandleNew.RowName) end) or "?"
+            end
+        end
+    end
+    return removed
+end
+
 --- Kicks a player: the client is told why and sent back to the main menu,
 --- which disconnects it through the game's normal (saving) path.
 function M.kick(pc, reason)

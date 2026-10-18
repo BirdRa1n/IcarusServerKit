@@ -194,7 +194,8 @@ end
 
 ------------------------------------------------------------------------------- character
 
---- Restores health, stamina, food, water and oxygen to their maximum.
+--- Restores health, stamina, food, water and oxygen and ends harmful conditions (broken bones,
+--- wounds, infections, poisoning...).
 function C.heal(cmd)
     local pc = game.require_player(cmd.player)
     local st = game.require_state(pc)
@@ -202,8 +203,34 @@ function C.heal(cmd)
     for _, key in ipairs({ "health", "stamina", "food", "water", "oxygen" }) do
         if try(function() return game.set_stat(st, key, 100) end) then done[#done + 1] = key end
     end
-    if #done == 0 then error("could not change any stat") end
-    return { message = game.player_name(pc) .. ": " .. table.concat(done, ", ") }
+    local cured = game.cure(pc)
+    if #done == 0 and #cured == 0 then error("could not change any stat") end
+    local msg = game.player_name(pc) .. ": " .. table.concat(done, ", ")
+    if #cured > 0 then msg = msg .. " | " .. table.concat(cured, ", ") end
+    return { message = msg, cured = cured }
+end
+
+--- Ends harmful conditions only.
+function C.cure(cmd)
+    local pc = game.require_player(cmd.player)
+    local cured = game.cure(pc)
+    return { message = game.player_name(pc) .. ": " .. (#cured > 0 and table.concat(cured, ", ") or "-"), cured = cured }
+end
+
+--- Lists the conditions on a player's character (for diagnostics).
+function C.get_conditions(cmd)
+    local pc = game.require_player(cmd.player)
+    local pawn = game.pawn(pc)
+    if not pawn then error("player has no character") end
+    local list = json.array()
+    for _, comp in ipairs(game.modifiers(pawn)) do
+        list[#list + 1] = {
+            id = try(function() return util.str(comp.DataRowHandleNew.RowName) end),
+            type = try(function() return comp.CachedModifierStateData.Type end),
+            remaining = try(function() return comp.RemainingTime end),
+        }
+    end
+    return { conditions = list }
 end
 
 function C.set_stat(cmd)

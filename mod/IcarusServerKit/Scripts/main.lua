@@ -12,8 +12,9 @@ local game = require("isk.game")
 local settings = require("isk.settings")
 local commands = require("isk.commands")
 local rules = require("isk.rules")
+local perks = require("isk.perks")
 
-local VERSION = "2.0.0"
+local VERSION = "2.1.0"
 local TICK_MS = 250
 local STATE_EVERY_S = 1
 local SETTINGS_EVERY_S = 3
@@ -50,6 +51,7 @@ local function snapshot(players)
         entry.ping = util.try(function() return p.pc.PlayerState.Ping * 4 end)
         entry.idle = rule_status.idle and rule_status.idle[p.id] or nil
         entry.exempt = settings.is_exempt(p.steam) or settings.is_exempt(p.id)
+        entry.perks = perks.of(p.steam, p.id)
         out[#out + 1] = entry
     end
     return {
@@ -78,6 +80,8 @@ local function tick()
         local players = collect_players()
         local ok, status = pcall(rules.tick, players)
         if ok then rule_status = status else util.log("rules error: " .. util.clean_error(status)) end
+        local pok, perr = pcall(perks.tick, players)
+        if not pok then util.log("perks error: " .. util.clean_error(perr)) end
         ipc.write_state(snapshot(players))
     end
 end

@@ -52,8 +52,17 @@ setInterval(() => {
   p0.pos.x += Math.cos(t / 5) * 900;
   p0.pos.y += Math.sin(t / 5) * 900;
   p0.yaw = ((t / 5) * 57.3 + 90) % 360;
-  p0.stats.stamina[0] = Math.round(60 + 40 * Math.abs(Math.sin(t / 3)));
+  if (!p0.perks?.stamina) p0.stats.stamina[0] = Math.round(60 + 40 * Math.abs(Math.sin(t / 3)));
   players[1].idle += 0.5;
+  // perks come from settings.json (next to ipc/), like in the real mod
+  let perks = {};
+  try {
+    perks = JSON.parse(fs.readFileSync(path.join(dir, '..', 'settings.json'), 'utf8').replace(/^﻿/, '')).perks || {};
+  } catch {}
+  for (const p of players) {
+    p.perks = perks[p.steamId];
+    if (p.perks?.stamina) p.stats.stamina[0] = p.stats.stamina[1];
+  }
   const state = {
     version: 'mock', map: 'Terrain_016', hour, uptime: Math.floor(t), time: Date.now(), players,
     rules: { minPlayers: { remaining: Math.max(0, 600 - Math.floor(t)), required: 3 } },

@@ -12,6 +12,7 @@ const DEFAULTS = {
   },
   exempt: [],
   bans: [],
+  perks: {},
   messages: {
     idleWarning: '{name}, you seem to be away. You will be kicked for inactivity in {minutes} min.',
     idleKick: 'Kicked for inactivity.',
@@ -26,6 +27,18 @@ const int = (v, lo, hi, def) => {
   return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : def;
 };
 const text = (v, def, max = 300) => (typeof v === 'string' && v.trim() ? v.trim().slice(0, max) : def);
+
+// Per-player unlimited stats, keyed by Steam ID.
+const PERKS = ['health', 'stamina', 'food', 'water', 'oxygen', 'immune'];
+
+function normalizePerks(perks) {
+  const out = {};
+  for (const [id, p] of Object.entries(perks && typeof perks === 'object' ? perks : {})) {
+    const flags = Object.fromEntries(PERKS.filter((k) => p && p[k]).map((k) => [k, true]));
+    if (Object.keys(flags).length) out[String(id)] = flags;
+  }
+  return out;
+}
 
 /** Coerces user input into a valid settings object. */
 function normalize(s = {}) {
@@ -51,6 +64,7 @@ function normalize(s = {}) {
     bans: (Array.isArray(s.bans) ? s.bans : [])
       .filter((b) => b && b.id)
       .map((b) => ({ id: String(b.id), name: text(b.name, String(b.id), 80), reason: text(b.reason, '', 200), at: Number(b.at) || Date.now() })),
+    perks: normalizePerks(s.perks),
     messages: Object.fromEntries(Object.keys(d.messages).map((k) => [k, text(msg[k], d.messages[k])])),
   };
 }
@@ -76,4 +90,4 @@ function createSettings(file) {
   return { get, save, update, exists: () => fs.existsSync(file) };
 }
 
-module.exports = { createSettings, DEFAULTS };
+module.exports = { createSettings, DEFAULTS, PERKS };

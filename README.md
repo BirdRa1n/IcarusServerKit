@@ -9,7 +9,8 @@ A web admin panel and server mod for **Icarus dedicated servers**, in the spirit
 - **Inventory** with game icons (quickbar, backpack, equipment, envirosuit); click a slot to remove items
 - **Item catalog**: 3,000+ items with icons, categories and search; give any quantity
 - **Creatures**: bestiary catalog with images; spawn any amount at random points around a player
-- **Character**: heal, set stats, give XP, kill, clear inventory
+- **Character**: heal (also ends broken bones, wounds, infections, poisoning and other harmful conditions), set stats, give XP, kill, clear inventory
+- **Unlimited** per player: health, stamina, food, water, oxygen (refilled whenever they drop) and immunity to conditions; saved, so it survives reconnects and restarts
 - **World**: time of day, clear weather, save the world now, server-wide message, console command, diagnostics
 - **Rules**: kick idle players, a minimum-players countdown so nobody progresses alone, exempt players, bans
 - **Live log**: chat, joins/leaves, admin actions, rule actions
@@ -114,7 +115,7 @@ reach it from outside your network use a VPN (e.g. WireGuard) instead of exposin
   class and function names used by the mod.
 - `update-data.bat [game folder]` rebuilds `panel/public/data`; `build-release.ps1` builds the release assets.
 - Mod layout: `main.lua` (loop), `isk/ipc.lua`, `isk/settings.lua`, `isk/game.lua` (game access), `isk/commands.lua`,
-  `isk/rules.lua`.
+  `isk/rules.lua`, `isk/perks.lua` (unlimited stats).
 
 ## Credits
 

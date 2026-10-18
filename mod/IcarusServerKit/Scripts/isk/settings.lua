@@ -18,6 +18,8 @@ M.DEFAULTS = {
     },
     exempt = json.array(), -- player ids (Steam ID) never kicked by the rules
     bans = json.array(), -- { id, name, reason, at }
+    -- per-player unlimited stats: [steam id] = { health, stamina, food, water, oxygen, immune = true }
+    perks = {},
     messages = {
         idleWarning = "{name}, you seem to be away. You will be kicked for inactivity in {minutes} min.",
         idleKick = "Kicked for inactivity.",

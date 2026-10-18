@@ -38,6 +38,7 @@ const UI = {
     'dlg.cancel': 'Cancel', 'dlg.confirm': 'Confirm', 'dlg.reason': 'Reason', 'dlg.amount': 'Amount', 'dlg.coords': 'Coordinates (X Y, Z optional)', 'dlg.player': 'Player', 'dlg.stat': 'Stat', 'dlg.percent': 'Value (%)',
     'confirm.kill': 'Kill {name}?', 'confirm.clear': "Delete every item in {name}'s backpack and quickbar? This cannot be undone.", 'confirm.kick': 'Kick {name}?', 'confirm.ban': 'Ban {name}? They will be kicked now and on every return.',
     'err.timeout': 'The server mod did not answer (server off or mod not installed?)', 'err.forbidden': 'You do not have permission', 'ok': 'Done',
+    'perks.title': 'Unlimited', 'perks.immune': 'Immune to conditions', 'perks.hint': 'refilled whenever it drops',
   },
   'pt-BR': {
     'login.user': 'Usuário', 'login.password': 'Senha', 'login.submit': 'Entrar', 'login.invalid': 'Usuário ou senha inválidos',
@@ -62,6 +63,7 @@ const UI = {
     'dlg.cancel': 'Cancelar', 'dlg.confirm': 'Confirmar', 'dlg.reason': 'Motivo', 'dlg.amount': 'Quantidade', 'dlg.coords': 'Coordenadas (X Y, Z opcional)', 'dlg.player': 'Jogador', 'dlg.stat': 'Status', 'dlg.percent': 'Valor (%)',
     'confirm.kill': 'Matar {name}?', 'confirm.clear': 'Apagar todos os itens da mochila e da barra rápida de {name}? Não dá para desfazer.', 'confirm.kick': 'Expulsar {name}?', 'confirm.ban': 'Banir {name}? O jogador será expulso agora e sempre que voltar.',
     'err.timeout': 'O mod do servidor não respondeu (servidor desligado ou mod não instalado?)', 'err.forbidden': 'Você não tem permissão', 'ok': 'Feito',
+    'perks.title': 'Ilimitado', 'perks.immune': 'Imune a condições', 'perks.hint': 'recarrega sempre que diminuir',
   },
   'es-419': {
     'login.user': 'Usuario', 'login.password': 'Contraseña', 'login.submit': 'Entrar', 'login.invalid': 'Usuario o contraseña incorrectos',
@@ -86,6 +88,7 @@ const UI = {
     'dlg.cancel': 'Cancelar', 'dlg.confirm': 'Confirmar', 'dlg.reason': 'Motivo', 'dlg.amount': 'Cantidad', 'dlg.coords': 'Coordenadas (X Y, Z opcional)', 'dlg.player': 'Jugador', 'dlg.stat': 'Estado', 'dlg.percent': 'Valor (%)',
     'confirm.kill': '¿Matar a {name}?', 'confirm.clear': '¿Borrar todos los objetos de la mochila y barra rápida de {name}? No se puede deshacer.', 'confirm.kick': '¿Expulsar a {name}?', 'confirm.ban': '¿Banear a {name}? Será expulsado ahora y cada vez que vuelva.',
     'err.timeout': 'El mod del servidor no respondió (¿servidor apagado o mod no instalado?)', 'err.forbidden': 'No tienes permiso', 'ok': 'Listo',
+    'perks.title': 'Ilimitado', 'perks.immune': 'Inmune a condiciones', 'perks.hint': 'se recarga cuando baja',
   },
   'fr-FR': {
     'login.user': "Nom d'utilisateur", 'login.password': 'Mot de passe', 'login.submit': 'Se connecter', 'login.invalid': 'Identifiants invalides',
@@ -110,6 +113,7 @@ const UI = {
     'dlg.cancel': 'Annuler', 'dlg.confirm': 'Confirmer', 'dlg.reason': 'Motif', 'dlg.amount': 'Quantité', 'dlg.coords': 'Coordonnées (X Y, Z facultatif)', 'dlg.player': 'Joueur', 'dlg.stat': 'Stat', 'dlg.percent': 'Valeur (%)',
     'confirm.kill': 'Tuer {name} ?', 'confirm.clear': "Supprimer tous les objets du sac et de la barre d'accès de {name} ? Action irréversible.", 'confirm.kick': 'Expulser {name} ?', 'confirm.ban': 'Bannir {name} ? Il sera expulsé maintenant et à chaque retour.',
     'err.timeout': "Le mod serveur n'a pas répondu (serveur arrêté ou mod non installé ?)", 'err.forbidden': "Vous n'avez pas la permission", 'ok': 'Terminé',
+    'perks.title': 'Illimité', 'perks.immune': 'Immunisé aux affections', 'perks.hint': 'rechargé dès qu’il baisse',
   },
   'de-DE': {
     'login.user': 'Benutzername', 'login.password': 'Passwort', 'login.submit': 'Anmelden', 'login.invalid': 'Benutzername oder Passwort ungültig',
@@ -134,6 +138,7 @@ const UI = {
     'dlg.cancel': 'Abbrechen', 'dlg.confirm': 'Bestätigen', 'dlg.reason': 'Grund', 'dlg.amount': 'Menge', 'dlg.coords': 'Koordinaten (X Y, Z optional)', 'dlg.player': 'Spieler', 'dlg.stat': 'Wert', 'dlg.percent': 'Wert (%)',
     'confirm.kill': '{name} töten?', 'confirm.clear': 'Alle Gegenstände aus Rucksack und Schnellleiste von {name} löschen? Nicht umkehrbar.', 'confirm.kick': '{name} kicken?', 'confirm.ban': '{name} bannen? Der Spieler wird jetzt und bei jeder Rückkehr gekickt.',
     'err.timeout': 'Der Server-Mod hat nicht geantwortet (Server aus oder Mod nicht installiert?)', 'err.forbidden': 'Keine Berechtigung', 'ok': 'Erledigt',
+    'perks.title': 'Unbegrenzt', 'perks.immune': 'Immun gegen Zustände', 'perks.hint': 'wird aufgefüllt, sobald es sinkt',
   },
   'ru-RU': {
     'login.user': 'Логин', 'login.password': 'Пароль', 'login.submit': 'Войти', 'login.invalid': 'Неверный логин или пароль',
@@ -158,6 +163,7 @@ const UI = {
     'dlg.cancel': 'Отмена', 'dlg.confirm': 'Подтвердить', 'dlg.reason': 'Причина', 'dlg.amount': 'Количество', 'dlg.coords': 'Координаты (X Y, Z необязательно)', 'dlg.player': 'Игрок', 'dlg.stat': 'Параметр', 'dlg.percent': 'Значение (%)',
     'confirm.kill': 'Убить {name}?', 'confirm.clear': 'Удалить все предметы из рюкзака и панели {name}? Это необратимо.', 'confirm.kick': 'Кикнуть {name}?', 'confirm.ban': 'Забанить {name}? Игрока кикнет сейчас и при каждом возвращении.',
     'err.timeout': 'Мод сервера не ответил (сервер выключен или мод не установлен?)', 'err.forbidden': 'Нет доступа', 'ok': 'Готово',
+    'perks.title': 'Бесконечно', 'perks.immune': 'Иммунитет к состояниям', 'perks.hint': 'восполняется при снижении',
   },
   'ja-JP': {
     'login.user': 'ユーザー名', 'login.password': 'パスワード', 'login.submit': 'ログイン', 'login.invalid': 'ユーザー名またはパスワードが違います',
@@ -182,6 +188,7 @@ const UI = {
     'dlg.cancel': 'キャンセル', 'dlg.confirm': '確認', 'dlg.reason': '理由', 'dlg.amount': '量', 'dlg.coords': '座標 (X Y、Z は任意)', 'dlg.player': 'プレイヤー', 'dlg.stat': 'ステータス', 'dlg.percent': '値 (%)',
     'confirm.kill': '{name} をキルしますか？', 'confirm.clear': '{name} のバックパックとクイックバーのアイテムをすべて削除しますか？元に戻せません。', 'confirm.kick': '{name} をキックしますか？', 'confirm.ban': '{name} を BAN しますか？今すぐ、そして戻るたびにキックされます。',
     'err.timeout': 'サーバー MOD が応答しません (サーバー停止中または MOD 未導入？)', 'err.forbidden': '権限がありません', 'ok': '完了',
+    'perks.title': '無制限', 'perks.immune': '状態異常無効', 'perks.hint': '減ると自動で回復',
   },
   'ko-KR': {
     'login.user': '사용자 이름', 'login.password': '비밀번호', 'login.submit': '로그인', 'login.invalid': '사용자 이름 또는 비밀번호가 올바르지 않습니다',
@@ -206,6 +213,7 @@ const UI = {
     'dlg.cancel': '취소', 'dlg.confirm': '확인', 'dlg.reason': '사유', 'dlg.amount': '수량', 'dlg.coords': '좌표 (X Y, Z는 선택)', 'dlg.player': '플레이어', 'dlg.stat': '상태', 'dlg.percent': '값 (%)',
     'confirm.kill': '{name}을(를) 처치할까요?', 'confirm.clear': '{name}의 배낭과 퀵바 아이템을 모두 삭제할까요? 되돌릴 수 없습니다.', 'confirm.kick': '{name}을(를) 추방할까요?', 'confirm.ban': '{name}을(를) 차단할까요? 지금과 다시 접속할 때마다 추방됩니다.',
     'err.timeout': '서버 모드가 응답하지 않습니다 (서버 꺼짐 또는 모드 미설치?)', 'err.forbidden': '권한이 없습니다', 'ok': '완료',
+    'perks.title': '무제한', 'perks.immune': '상태 이상 면역', 'perks.hint': '줄어들면 자동으로 회복',
   },
   'zh-Hans': {
     'login.user': '用户名', 'login.password': '密码', 'login.submit': '登录', 'login.invalid': '用户名或密码错误',
@@ -230,6 +238,7 @@ const UI = {
     'dlg.cancel': '取消', 'dlg.confirm': '确认', 'dlg.reason': '原因', 'dlg.amount': '数量', 'dlg.coords': '坐标 (X Y，Z 可选)', 'dlg.player': '玩家', 'dlg.stat': '属性', 'dlg.percent': '数值 (%)',
     'confirm.kill': '击杀 {name}？', 'confirm.clear': '删除 {name} 背包和快捷栏中的所有物品？此操作无法撤销。', 'confirm.kick': '踢出 {name}？', 'confirm.ban': '封禁 {name}？该玩家会被立即踢出，并在每次返回时被踢出。',
     'err.timeout': '服务器模组没有响应（服务器已关闭或未安装模组？）', 'err.forbidden': '没有权限', 'ok': '完成',
+    'perks.title': '无限', 'perks.immune': '免疫异常状态', 'perks.hint': '下降时自动恢复',
   },
   'zh-Hant': {
     'login.user': '使用者名稱', 'login.password': '密碼', 'login.submit': '登入', 'login.invalid': '使用者名稱或密碼錯誤',
@@ -254,6 +263,7 @@ const UI = {
     'dlg.cancel': '取消', 'dlg.confirm': '確認', 'dlg.reason': '原因', 'dlg.amount': '數量', 'dlg.coords': '座標 (X Y，Z 可選)', 'dlg.player': '玩家', 'dlg.stat': '屬性', 'dlg.percent': '數值 (%)',
     'confirm.kill': '擊殺 {name}？', 'confirm.clear': '刪除 {name} 背包與快捷欄中的所有物品？此動作無法復原。', 'confirm.kick': '踢出 {name}？', 'confirm.ban': '封鎖 {name}？該玩家會被立即踢出，並在每次返回時被踢出。',
     'err.timeout': '伺服器模組沒有回應（伺服器已關閉或未安裝模組？）', 'err.forbidden': '沒有權限', 'ok': '完成',
+    'perks.title': '無限', 'perks.immune': '免疫異常狀態', 'perks.hint': '下降時自動恢復',
   },
 };
 

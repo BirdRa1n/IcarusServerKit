@@ -241,6 +241,13 @@ label { display: flex; flex-direction: column; gap: 5px; color: var(--muted); fo
 .stat-top b { font-variant-numeric: tabular-nums; color: var(--text); font-weight: 600; }
 .bar { height: 6px; border-radius: 6px; background: rgba(255, 255, 255, 0.06); overflow: hidden; }
 .bar > i { display: block; height: 100%; border-radius: 6px; width: 0; transition: width 0.9s var(--ease); background: var(--c, var(--good)); box-shadow: 0 0 10px var(--c, var(--good)); }
+.perks { display: flex; flex-direction: column; gap: 7px; padding: 10px 12px; border-radius: var(--radius-sm); background: rgba(0, 0, 0, 0.22); border: 1px solid var(--line); }
+.perks-head { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; }
+.perks-head .section-title { margin: 0; }
+.perk { display: inline-flex; align-items: center; gap: 5px; }
+.perk .ic { width: 13px; height: 13px; }
+.perk.active { animation: perk-on 0.45s var(--spring); box-shadow: 0 0 14px rgba(242, 165, 65, 0.45); }
+@keyframes perk-on { 40% { transform: scale(1.12); } }
 .actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; }
 .actions .btn { justify-content: flex-start; font-size: 12.5px; padding: 8px 10px; }
 .actions .btn .ic { color: var(--accent); }
