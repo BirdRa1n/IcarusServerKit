@@ -203,7 +203,12 @@ function C.heal(cmd)
     for _, key in ipairs({ "health", "stamina", "food", "water", "oxygen" }) do
         if try(function() return game.set_stat(st, key, 100) end) then done[#done + 1] = key end
     end
-    local cured = game.cure(pc)
+    -- conditions are best effort: a failure there must not undo the stat refill
+    local ok, cured = pcall(game.cure, pc)
+    if not ok then
+        util.log("cure failed: " .. util.clean_error(cured))
+        cured = {}
+    end
     if #done == 0 and #cured == 0 then error("could not change any stat") end
     local msg = game.player_name(pc) .. ": " .. table.concat(done, ", ")
     if #cured > 0 then msg = msg .. " | " .. table.concat(cured, ", ") end

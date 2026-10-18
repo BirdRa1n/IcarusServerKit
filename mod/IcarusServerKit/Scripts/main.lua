@@ -14,7 +14,7 @@ local commands = require("isk.commands")
 local rules = require("isk.rules")
 local perks = require("isk.perks")
 
-local VERSION = "2.1.0"
+local VERSION = "2.1.1"
 local TICK_MS = 250
 local STATE_EVERY_S = 1
 local SETTINGS_EVERY_S = 3

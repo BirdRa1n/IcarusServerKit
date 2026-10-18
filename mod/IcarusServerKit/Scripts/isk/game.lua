@@ -180,16 +180,30 @@ function M.modifiers(actor)
     end
     local list = {}
     local comps = valid(modifier_class) and try(function() return actor:K2_GetComponentsByClass(modifier_class) end)
-    if comps then
-        comps:ForEach(function(_, c)
-            local comp = c:get()
-            if valid(comp) then list[#list + 1] = comp end
-        end)
-        return list
+    -- UE4SS returns arrays from function calls as plain Lua tables, and array properties as
+    -- TArray objects (ForEach); elements may be wrapped (get()) or the object itself
+    local function add(c)
+        local comp = c
+        if type(c) == "userdata" then
+            local inner = try(function() return c:get() end)
+            if inner ~= nil then comp = inner end
+        end
+        if valid(comp) then list[#list + 1] = comp end
     end
-    -- fallback: scan every modifier and keep the ones owned by the actor
+    if type(comps) == "table" then
+        for _, c in ipairs(comps) do add(c) end
+        if #list > 0 then return list end
+    elseif comps ~= nil and try(function() comps:ForEach(function(_, c) add(c) end); return true end) then
+        if #list > 0 then return list end
+    end
+    -- fallback: scan every modifier and keep the ones owned by the actor (compared by address:
+    -- two Lua wrappers of the same UObject are not necessarily equal)
+    local target = try(function() return actor:GetAddress() end)
     for _, comp in ipairs(FindAllOf("ModifierStateComponent") or {}) do
-        if valid(comp) and try(function() return comp:GetOwner() end) == actor then list[#list + 1] = comp end
+        if valid(comp) then
+            local owner = try(function() return comp:GetOwner():GetAddress() end)
+            if owner ~= nil and owner == target then list[#list + 1] = comp end
+        end
     end
     return list
 end
